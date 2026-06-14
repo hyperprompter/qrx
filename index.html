@@ -1,0 +1,175 @@
+<main id=A></main>
+<script id=S>
+setTimeout(async () => {
+  // manually compressed shorthands
+  L = location
+  LP = L.pathname
+  $L = localStorage
+  G = 'globals'
+  C = 'cache'
+  T = 'target'
+  TL = 'toLowerCase'
+  RO = 'readonly'
+  HR=history.replaceState.bind(history)
+  RW = 'readwrite'
+
+  // default indexedDB name
+  WNS = await window.NS
+  filename = MAIN = 'main'
+  DB = LP.slice(1) || WNS || MAIN
+  COS = 'createObjectStore'
+  !L.hash && HR(0, '', `#${MAIN}`)
+
+  // default table name
+  FILES = 'files'
+
+  os = db = null
+
+  // promise wrapper around DB transactions
+  // q: the request
+  // f: optionall callback to transform result
+  queryDB = (q, f) =>
+    new Promise(r => q['onsuccess'] = e => r(f ? f(e) : e[T].result))
+
+  // n: database name
+  // t: table name
+  getDB = (n = DB, t = FILES) => {
+    let q = indexedDB.open(n)
+    q.onupgradeneeded = e => e[T].result[COS](t)
+    return queryDB(q, e => e[T].result)
+  }
+
+  // returns all keys in database
+  // q: query
+  // d: database
+  keys = (q, d) => queryDB(tx(RO, d).getAllKeys(q))
+
+  // db transaction
+  // m: transaction mode
+  // d: database
+  tx = (m = RO, d = db, t = FILES) => d.transaction(t, m).objectStore(t)
+  write=async(v,k,d=db,n=filename)=>(d=d.trim?await getDB(d):d,queryDB(tx(RW,d).put(v,k||n)))
+  read = async (k, d = db) => {
+    d = d.trim ? await getDB(d) : d
+    let v = await queryDB(tx(RO, d).get(k || filename))
+    return !v && d == db && os ? read(k, os) : v
+  }
+
+  // db init
+  boot = async () => {
+    db = await getDB()
+    os = DB[TL]() == MAIN[TL]() ? null : await getDB(MAIN)
+  }
+
+  // run the os
+  run = async () => {
+    if (!db) await boot()
+    if (!L.hash) {
+      HR(0, '', `#${MAIN}`)
+      return run()
+    }
+    let c, ctx, h = L.hash.slice(1),
+      [n, q] = h.split('?'),
+      f = filename = n,
+      v = await read(n) || '',
+      app = false // append mode
+    if (!q && $L._q) { let t = $L._q.split('?'); t[0] == n && t[1] && (q = t[1], $L._q = '') }
+    let p = new URLSearchParams(q)
+
+    // run boot/* files on every navigation, filename is already set
+    let bq = IDBKeyRange.bound('boot', 'boot\uffff'),
+      b = await keys(bq, db)
+    if (os) b = [...new Set([...b, ...await keys(bq, os)])]
+    for (let bf of b) {
+      try { (new Function(G, await read(bf)))(this) }
+      catch (e) { console.error(bf, e) }
+    }
+
+    // The Machine Tape
+    for (let [k, val] of p) {
+      val = decodeURIComponent(val)
+      let r, s
+      // should we overwrite (0) or append (1)
+      if (k == 'a') app = val != '0'
+      // file pointer
+      else if (k == 'f') f = val
+      // additional context buffer for ai only (does not get added to accumalator)
+      else if (k == 'c') {
+        if (val == '0') ctx = ''
+        else ctx = `<CONTEXT>${(ctx || '')}</CONTEXT>
+  ${((val == 'src' ? S.innerText : await read(val)) || '')}`
+      }
+      // ai variables
+      else if ('kmsh'.includes(k)) $L.setItem(k, val)
+      // accumalator commands (including prompting)
+      else if ('erup'.includes(k)) {
+        s = val
+        if (k == 'r') s = (val == 'src' ? S.innerText : await read(val)) || ''
+        else if (k == 'u') {
+          try {
+            s = await (await fetch(val)).text()
+            await write(s, val, C)
+          } catch (e) {
+            s = await read(val, C) || e
+          }
+        }
+        else if (k == 'p') s = await gen((ctx ? ctx + '\n' : '') + v, val)
+        v = app ? v + s : s
+      }
+      // write accumalator to disk
+      else if (k == 'w') await write(v, f)
+      // execute code
+      else if (k == 'x') {
+        try {
+          let c = val || v
+          r = await (new Function(G, 'v', c))(this, v)
+          if (r !== void 0) v = r
+        } catch (e) { console.error(e) }
+      }
+      // autoload other params
+      else if (c = await read(k)) {
+        try {
+          r = await (new Function(G, 'v', 'arg', c))(this, v, val)
+          if (r !== void 0) v = r
+        } catch (e) { v = app ? v + c : c }
+      }
+    }
+    if (q) { v ? ($L._q = '', HR(0, '', '#' + n)) : ($L._q = n + '?' + q, HR(0, '', '#' + n)) }
+    hydrate(v)
+  }
+
+  // inject content into DOM and run scripts
+  // h: html content to inject
+  hydrate = h => {
+    A.innerHTML = h
+    A.querySelectorAll('script').forEach(o => {
+      let s = document.createElement('script')
+      Array.from(o.attributes).forEach(a => s.setAttribute(a.name, a.value))
+      s.text = o.textContent
+      o.replaceWith(s)
+    })
+  }
+
+  // get a generative response from ?h
+  // ctx: extra context
+  // p: the prompt to use
+  gen = async (ctx, p) => {
+    let [k, m, s, h] = ['k', 'm', 's', 'h'].map(x => $L.getItem(x)),
+      msg = ctx + p + (s || '\nNO MARKDOWN, BEGIN RAW OUTPUT NOW:'),
+      u = h,
+      b = { model: m, messages: [{ role: 'user', content: msg }], stream: false, },
+      head = { 'Content-Type': 'application/json' },
+      req, res, txt
+    if (k) head['Authorization'] = `Bearer ${k}`
+    A.innerHTML = 'Thinking...'
+    try {
+      req = await fetch(u, { method: 'POST', headers: head, body: JSON.stringify(b) })
+      res = await req.json()
+      txt = res.message?.content || res.choices?.[0]?.message?.content
+    } catch (e) { txt = e.message }
+    return txt || ''
+  }
+  onhashchange = () => run()
+  run()
+}, 0)
+</script>
