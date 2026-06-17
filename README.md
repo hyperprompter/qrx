@@ -50,6 +50,8 @@ The kernel exposes the following variables and methods
 | **`getDB([n])`** | **Database Access**. Returns the IndexedDB instance for name `n`. Defaults to the current active database |
 | **`run()`** | **Re-Run Tape**. Manually triggers the URL parsing loop. Useful if hash state changes programmatically without a reload |
 
+-----------------------------
+
 # Developer Notes
 
 ## Build Pipeline (`npm run build`)
@@ -70,7 +72,7 @@ The bootloader runs on every page load, after the kernel has initialized its DB 
 - Stubs all other known keys as empty strings so they appear in key listings without triggering a full fetch
 - Reloads the page on first boot or whenever synced content has changed, so the kernel always starts with a consistent local state
 
------
+-----------------------------
 
 # Tips
 
@@ -83,3 +85,96 @@ Instead, you can save your system prompt as a standard text file in your databas
 
 Because `?x` evaluates dynamically via `new Function` without an `async` wrapper, using the native Promise `.then()` chain successfully prevents top-level `await` syntax errors. This permanently sets your operating system's behavioral framework securely behind the scenes.
 
+-----------------------------
+
+# Server
+
+## Setup
+
+Rename `TEMPLATE.env` to `.env` before starting the server:
+
+```
+cp TEMPLATE.env .env
+```
+
+Then edit `.env` to configure your instance:
+
+```
+# Secret key required to authorize /write requests
+QRX_SYNC_KEY=your-secret-here
+
+# Comma-separated list of namespaces publicly readable via /read
+# 'main' and 'cache' are always included regardless of this setting
+QRX_INCLUDE_NAMESPACES=main,wiki,cache
+
+# Port the server listens on
+QRX_PORT=3000
+```
+
+`QRX_SYNC_KEY` acts as a shared secret between your kernel and the server. Any `?w=` write that persists to disk sends this key in the `Authorization` header — without it, `/write` returns 401. Keep it out of version control.
+
+## Running
+
+```
+npm run build   # compile kernel + generate QR
+npm run start   # start the server
+```
+
+The server will log:
+
+```
+Server active on http://0.0.0.0:3000
+```
+
+In development you can run `npm run start` without building first if `dist/` already exists. The two processes are independent.
+
+## Namespaces
+
+All data is organized into namespaces — each one maps to a directory under `data/`. The active namespace for a given browser session is determined by:
+
+1. The URL path segment: `http://yourhost/wiki` sets `DB` to `wiki`
+2. The hostname: if `data/yourhostname/` exists, `window.NS` is injected into the served HTML and the kernel uses it as the active namespace
+3. Fallback: `main`
+
+Namespaces that aren't in `QRX_INCLUDE_NAMESPACES` (plus the always-included `main` and `cache`) are private — `/read` will return 404 for them unless the request carries a valid `QRX_SYNC_KEY`. This lets you host multiple users or contexts from one server with controlled visibility.
+
+The `main` namespace acts as a system-level fallback: if a key isn't found in the active namespace, `/read` tries `data/main/` before giving up.
+
+## data/index.json
+
+`data/index.json` is a flat JSON array of every publicly readable `namespace/key` path the server knows about, e.g.:
+
+```json
+["main/boot/init", "main/readme", "wiki/start", "cache/https://example.com/feed"]
+```
+
+It is regenerated automatically in two situations:
+
+- On server startup
+- When a file change is detected in `data/` (debounced 30 seconds to avoid thrashing on rapid writes)
+
+The bootloader fetches this file on every page load to know what keys exist without having to enumerate IndexedDB. Keys not present in the index don't get synced from the server, even if they exist locally.
+
+URL-style keys (e.g. from `?u=` fetches) are stored on disk with `://` encoded as `%3A%2F` to avoid `path.join` collapsing the double slash. The index always contains the decoded original key so the kernel never sees the encoded form.
+
+## URL Caching (`?u=`)
+
+When the kernel fetches a URL via `?u=https://...`, it uses a network-first, cache-fallback strategy:
+
+1. Fetches the URL over the network
+2. On success, writes the content to the `cache` IndexedDB namespace under the URL as the key
+3. On failure (offline, timeout, error), reads from `cache` instead
+
+The `cache` namespace is always publicly readable — its contents were already public by definition since they came from external URLs. This means cached remote content survives across sessions and devices that share the same server.
+
+## Server-Sent Events (`/stream`)
+
+The server exposes a `/stream` endpoint that pushes real-time write notifications to connected clients via SSE. Whenever a `/write` succeeds, all connected clients receive a JSON event:
+
+```json
+{ "namespace": "main", "key": "myfile", "clientId": "..." }
+```
+
+This allows multiple browser tabs or devices to react to writes without polling. The kernel can subscribe to `/stream` and call `run()` or selectively reload keys when it receives a relevant event.
+
+If `QRX_SYNC_KEY` is set, `/stream` requires `?auth=your-secret` in the URL to connect.
