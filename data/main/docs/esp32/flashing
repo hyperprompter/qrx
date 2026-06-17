@@ -1,0 +1,126 @@
+> Instructions for flashing ESP32 S3-N16R8 in 2026 with web flashers
+===
+
+### **Phase 1: Linux Mint Prep (One-Time Setup)**
+
+*The "Gatekeepers" that block the connection.*
+
+1. **Kill the Saboteurs:**
+Open a terminal and run this to remove the services that hijack the USB port:
+```bash
+sudo systemctl stop brltty-udev.service
+sudo systemctl disable brltty-udev.service
+sudo apt remove brltty -y
+sudo apt remove modemmanager -y
+
+```
+
+
+2. **Add User to Dialout:**
+```bash
+sudo usermod -a -G dialout $USER
+
+```
+
+
+*(You must log out and log back in for this to take effect).*
+
+---
+
+### **Phase 2: The Firmware Files**
+
+*Do NOT use the "Combined" binary. It puts the bootloader in the wrong place for the S3.*
+
+1. **Download the Archive:**
+* **Link:** [Espruino Travis Builds (Master)](https://www.espruino.com/binaries/travis/master/)
+* **File:** Search for **`espruino_2v28.xxx_esp32s3.tgz`** (Get the `.tgz` file, NOT the `.bin`).
+
+
+2. **Extract It:**
+* Unzip the folder. You need these three files:
+* `bootloader.bin`
+* `partitions_espruino.bin`
+* `espruino_esp32s3.bin`
+
+
+
+
+
+---
+
+### **Phase 3: The Flashing Procedure**
+
+*The "God Mode" manual flash.*
+
+1. **Open the Tool:**
+* Go to: **[espressif.github.io/esptool-js/](https://espressif.github.io/esptool-js/)**
+* *(Do NOT use the Espruino Web IDE flasher).*
+
+
+2. **Enter Bootloader Mode (CRITICAL):**
+* Unplug the board.
+* Hold **BOOT** (GPIO 0).
+* Plug in USB.
+* Wait 1 second -> Release **BOOT**.
+* *Check:* The board must be **SILENT** (No flashing lights).
+
+
+3. **Connect & Configure:**
+* **Baud Rate:** `921600` (Fast) or `460800` (Safe).
+* **Flash Mode:** **DIO** (Required for N16R8 storage).
+* **Flash Frequency:** **40MHz** (Required for S3 stability).
+
+
+4. **Map the Files:**
+Set up 3 rows with these **EXACT** addresses:
+| Address | File Name |
+| --- | --- |
+| **`0x0`** | `bootloader.bin` |
+| **`0x8000`** | `partitions_espruino.bin` |
+| **`0x10000`** | `espruino_esp32s3.bin` |
+
+
+5. **Program:**
+* Check **"Erase Flash"** (Always start clean).
+* Click **Program**.
+* Wait for "Done."
+
+
+
+---
+
+### **Phase 4: The Handshake**
+
+*Waking up the new brain.*
+
+1. **Hard Reset:**
+* Press the **EN** (Reset) button on the board.
+
+
+2. **Open IDE:**
+* Go to: **[espruino.com/ide](https://www.espruino.com/ide/)**
+* Click **Connect**.
+
+
+3. **The "Hello":**
+* If the console is blank, click in the **Left Pane** and hit `Enter` or type `reset()`.
+* You should see the `____ Espruino` logo.
+
+
+
+### **Phase 5: The Test Code**
+
+*Since `LED1` doesn't exist on generic boards.*
+
+```javascript
+// Generic ESP32-S3 Blink Test
+// Blue LED is usually GPIO 2
+var led = 2; 
+var on = false;
+
+setInterval(function() {
+  on = !on;
+  digitalWrite(led, on);
+}, 500);
+
+```

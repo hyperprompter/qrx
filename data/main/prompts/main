@@ -1,0 +1,95 @@
+#main?e&w&p=TASK: output HTML wireframe for a windows 95 simulator
+  - start menu with "🪟 Start" button and  time area (no start panel yet)
+  - a hidden, reusable window template with
+    - title
+    - min, max, close buttons
+    - address bar with refresh icon and "Go" button
+  - windows teal background
+  - basic css reset like margin: 0 for body and box-sizing
+  - no javascript
+  - don't include html/head/body tags just the wireframe
+&w&a=1&p=TASK: output SCRIPT tag for rendering top level icons
+  - loop through each indexeddb record
+    - the database is in the global strings `window.DB` and the table name is in `window.FILES`
+  - keys can have slashes in them denoting folders
+  - create a 📄 icon for every top level file
+    - the label is everything after the final / (or the whole string)
+  - create a 📁 icon for every top level folder
+    - the label is everything before the first / at that level
+&w&a=1&p=TASK: output SCRIPT tag for File Explorer
+  - when folder icon is single clicked or tapped, show a window for it
+  - set the addressbar to full/folder/path
+  - focus the addressbar on open
+  - generate more icons and folders for the current folder inside the window
+  - when clicking on a folder inside File Explorer update the addressbar and icons
+  - clicking the Go button or pressing enter in the address bar navigates that window
+  - don't handle other window interaction yet
+&w&a=1&p=TASK: output SCRIPT tag for showing file windows on icon clicks
+  - name the file opening function exactly `openFileWindow` and assign it to `window.openFileWindow`
+  - when file icon is single clicked or tapped, show a window for it
+  - show a full size iframe in the windows content area
+  - set the addressbar to full/file/path
+  - set the iframe path to just `${window.DB}#${full/file/path}`
+  - listen for #hash changes inside the iframe and update the addressbar on change (be mindful of loops)
+  - keep addressbar and iframe synced
+  - when user presses enter in the addressbar or presses Go, the iframe should update to the new URL
+  - do this for file icons in folders too
+  - don't handle other window interaction yet
+  - URLs must always be in the form db#file
+    - if no db name is present assume ${window.DB}
+    - if no # hash symbol is present, assume the whole thing is a hash
+  - example: if DB='main' then #chat should map to main#chat
+  - example: if DB='apps/paint' and file is 'art/selfie' then it should map to apps/paint#art/selfie
+&w&a=1&p=TASK: output SCRIPT tag for handling windows
+  - make windows draggable by dragging the titlebar
+  - make windows resizable
+    - make sure any window body elements and iframe resize to fit new window size too (this often fails to work due to nested elements)
+  - make windows closable
+  - make windows maximizable (and restore size when pressed again)
+  - make windows minizable (and show an icon for it in the startbar
+&w&a=1&p=TASK: update taskbar time area to show live clock and battery status
+  - locate the existing time area element inside the taskbar
+  - create a function that gets new Date and formats it as h:mm A
+  - use setInterval to run this clock function every 1000ms and update the DOM
+  - call navigator.getBattery and resolve the promise
+  - inside the promise create an update function that reads battery level
+  - multiply the level by 100 to get the percent value
+  - check the charging boolean
+  - format the output as a plug icon if charging or a battery icon if not alongside the percent
+  - add event listeners for levelchange and chargingchange to automatically update the ui
+  - render both the battery string and the clock string side by side in the time area element
+&w&a=1&p=TASK: make the refresh icon reload the window iframe
+  - use event delegation to check if the clicked target matches the template window refresh buttons
+  - if so reload that windows iframe
+&w&a=1&p=TASK: output a SCRIPT tag that adds global Speech-to-Text with DEEP DEBUGGING
+  - initialize window.SpeechRecognition || window.webkitSpeechRecognition with continuous = true and interimResults = false
+  - console.log("Speech API found:", !!(window.SpeechRecognition || window.webkitSpeechRecognition))
+  - create a 🎙️ button and append it to the taskbar. console.log("Mic button added")
+  - on the button's 'mousedown' event: call event.preventDefault() to prevent focus stealing, toggle a listening boolean, and console.log("Mic clicked. State listening:", state)
+  - when listening: change button text to 🔴 and call recognition.start() inside a try/catch that console.errors failures
+  - when stopped: change to 🎙️ and call recognition.stop()
+  - add recognition.onstart: console.log("Speech started successfully")
+  - add recognition.onerror: console.error("Speech error:", event.error)
+  - add recognition.onend: console.log("Speech ended"). if state is listening, set 200ms timeout to try recognition.start() again
+  - on recognition result: get the final transcript string and console.log("Heard:", transcript)
+  - traverse to find the focused field: var el = document.activeElement; console.log("Base active element:", el)
+  - while el is an IFRAME, wrap in try/catch: switch el to el.contentDocument.activeElement and console.log("Iframe active element:", el). catch and console.error the error.
+  - if el is an INPUT or TEXTAREA: console.log("Target found!", el), then append the transcript (adding a leading space if needed), update el.value, and dispatch a new Event('input', { bubbles: true })
+  - if el is NOT an input/textarea: console.warn("Active element is not a text field. Text discarded.")
+  - wrap in an async IIFE and use var for all variables
+&w&a=1&p=TASK: output a SCRIPT tag that binds Ctrl+Space to open or focus the run window
+  - add a keydown event listener to the window
+  - if event.ctrlKey is true and (event.code is 'Space' or event.key is ' ')
+  - call event.preventDefault()
+  - FIRST, prevent duplicates: search the DOM for an input field whose value ends with 'run'
+  - if found, call .focus() on it and return
+  - IF NOT FOUND, we must use the existing UI to spawn it so all event listeners attach correctly
+  - query the DOM for all file icon elements
+  - loop through them, get their textContent, replace the '📄' character, and trim whitespace
+  - if the cleaned text exactly equals 'run', call .click() on that element
+  - then use setTimeout for 100ms
+  - inside the timeout, search the DOM again for the newly spawned input field whose value ends with 'run'
+  - if found, call .focus() on it
+  - use var for all variables
+&w&a=1&e=<script>window.dispatchEvent(new CustomEvent('main:ready'))</script>
+&w

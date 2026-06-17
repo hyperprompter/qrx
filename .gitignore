@@ -1,3 +1,7 @@
 node_modules
 dist
 .env
+public/data/index.json
+data/*
+!data/main/
+!data/cache/

@@ -1,0 +1,34 @@
+#boot/sync?e&w&c=docs/index.html&p=TASK: output a self calling anonymous JS function that overrides the global read and write variables
+  - the very first line of the entire output must be the idempotency guard: if(window._bootSync)return;window._bootSync=true;
+  - this guard must appear before any IIFE or other code
+  - read FOG_URL and SYNC_KEY from localStorage
+  - if no FOG_URL: if protocol is http use location.protocol + '//' + location.hostname + ':3000', otherwise use location.origin
+  - attach FOG_URL, SYNC_KEY, and a newly generated random CLIENT_ID directly to the window object so future scripts can use them
+  - save the original window.write and window.read functions to variables
+  - redefine window.write(v, k, d, n):
+    - call the original write function and save its return value
+    - fetch POST to window.FOG_URL/write with payload {namespace, key, value: v, clientId: window.CLIENT_ID}
+    - resolve namespace from 'd' (use d.name if object, else d) falling back to global DB
+    - resolve key from 'k' falling back to global filename
+    - include Authorization: window.SYNC_KEY header
+    - catch fetch errors silently
+    - return the original write return value
+  - redefine window.read(k, d):
+    - try to fetch POST from window.FOG_URL/read with {namespace, key} resolved the same way
+    - parse the json and extract the .value property
+    - if the fetch fails, or if the extracted value is undefined or null, return the result of the original read function
+    - if the extracted value is a string (even an empty one), save it locally by calling the original write function, then return the extracted value
+  - do not output HTML or markdown just pure javascript
+&w&a=1&p=TASK: output a self calling anonymous JS function that creates an SSE connection and BroadcastChannel
+  - only create window.syncBus if it does not already exist: if(!window.syncBus) window.syncBus = new BroadcastChannel('qrx_sync')
+  - add onmessage listener to window.syncBus: if event.data.namespace equals DB AND event.data.key equals filename AND event.data.clientId is not window.CLIENT_ID, call the global run() function
+  - if window is exactly equal to window.top AND !window.top.qrx_sse:
+    - set window.top.qrx_sse = true
+    - create a new EventSource connecting to window.FOG_URL + '/stream%3Fauth=' + window.SYNC_KEY
+    - replace %3F with an actual question mark in the URL string
+    - add onmessage listener to the EventSource
+    - inside the EventSource onmessage, parse event.data as JSON
+    - post the parsed JSON object to window.syncBus
+    - catch any JSON parsing errors silently
+  - do not output HTML or markdown just pure javascript
+&w

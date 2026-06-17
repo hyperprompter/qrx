@@ -1,0 +1,102 @@
+<style>
+body {
+    margin: 0;
+}
+.app-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    margin: 0;
+}
+.status-bar {
+    padding: 10px 15px;
+    background-color: #f3f3f3;
+    border-bottom: 1px solid #e0e0e0;
+    font-family: sans-serif;
+    font-size: 14px;
+    color: #333;
+}
+#editor-container {
+    flex: 1;
+    overflow: hidden;
+}
+</style>
+
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css">
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+
+<div class="app-wrapper">
+    <div class="status-bar">
+        Status: Ready | Live Preview Markdown Editor
+    </div>
+    <div id="editor-container"></div>
+</div><script>
+function init() {
+    if (!window.toastui || !window.toastui.Editor) return setTimeout(init, 50);
+
+    read(filename).then(function(v) {
+        window.editorInstance = new window.toastui.Editor({
+            el: document.getElementById('editor-container'),
+            height: "100" + String.fromCharCode(37),
+            initialEditType: "wysiwyg",
+            initialValue: v || ""
+        });
+
+        var debounceTimer;
+        window.editorInstance.on('change', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(function() {
+                write(window.editorInstance.getMarkdown(), filename);
+            }, 500);
+        });
+    });
+}
+
+window.addEventListener('hashchange', function() {
+    read(filename).then(function(v) {
+        if (v !== window.editorInstance.getMarkdown()) {
+            window.editorInstance.setMarkdown(v || "");
+        }
+    });
+});
+
+init();
+</script><script>
+function initStatus() {
+    if (!window.editorInstance) return setTimeout(initStatus, 50);
+    
+    var statusBar = document.querySelector('.status-bar');
+    
+    var updateStats = function() {
+        var markdownText = window.editorInstance.getMarkdown();
+        var charCount = markdownText.length;
+        var byteSize = new Blob([markdownText]).size;
+        statusBar.innerText = "Chars: " + charCount + " | Bytes: " + byteSize;
+    };
+
+    window.editorInstance.on('change', updateStats);
+    updateStats();
+}
+initStatus();
+</script><script>
+function initSync() {
+    if (!window.editorInstance) return setTimeout(initSync, 50);
+
+    var channel = new BroadcastChannel('qrx_editor');
+
+    window.editorInstance.on('change', function() {
+        channel.postMessage({filename: filename});
+    });
+
+    channel.onmessage = function(event) {
+        if (event.data.filename == filename) {
+            read(filename).then(function(v) {
+                if (v !== window.editorInstance.getMarkdown()) {
+                    window.editorInstance.setMarkdown(v || "");
+                }
+            });
+        }
+    };
+}
+initSync();
+</script>

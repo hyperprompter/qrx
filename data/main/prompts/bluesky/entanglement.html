@@ -1,0 +1,46 @@
+#bluesky/entanglement.html?u=https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js&e&w
+&p=TASK: output raw HTML fragments and CSS only
+  - absolutely no html, head, body, meta, title, or doctype tags
+  - no iframe elements
+  - the ONLY script tag is this exact one at the very top, no other script tags or javascript: read('https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js','cache').then(function(lib){var s=document.createElement('script');s.textContent=lib;document.querySelector('main#A').appendChild(s)})
+  - header bar: text input id="actor-input" default "hypertext.wiki", Load button id="load-btn", status span id="status"
+  - left panel id="graph" fills full width and height
+  - right panel id="preview" hidden by default (display:none), positioned absolute over the right half so it overlays rather than squeezing the graph
+  - style tag for all styles
+&w&a=1&p=TASK: output a SCRIPT tag that fetches the AT Protocol author feed
+  - endpoint: GET https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed
+  - accepts: actor (handle or DID), limit (max 100), cursor (string) for pagination
+  - response: {feed: [...], cursor: "string or absent on last page"}
+  - feed item: post.uri, post.record.text, post.record.embed, post.record.reply
+  - quote target: record.embed.$type containing "embed.record", uri at record.embed.record.uri or record.embed.record.record.uri for recordWithMedia
+  - reply target: record.reply.parent.uri
+  - stop after 500 posts, store remaining cursor in window.feedCursor and current actor in window.feedActor
+  - create window.feedItems = [] to accumulate across load-more calls
+  - create window.fetchFeed = async function(actor, resumeCursor) that pages until 500 new posts or no cursor
+  - on completion dispatch CustomEvent 'feed:loaded' on window with full window.feedItems array as event.detail
+  - if more pages remain after stopping, show a Load more button in the header that calls window.fetchFeed(window.feedActor, window.feedCursor)
+  - bind id="load-btn" click and Enter keydown on id="actor-input" to reset window.feedItems and call window.fetchFeed with trimmed input
+  - do NOT auto-call fetchFeed on load, the graph script handles that after vis is ready
+  - no CORS proxies, Bluesky public API supports direct cross-origin requests natively
+  - update id="status" throughout
+  - use var for all variables
+&w&a=1&p=TASK: output a SCRIPT tag that renders the vis.js entanglement graph
+  - poll for vis to be defined with setTimeout every 100ms
+  - once vis is ready, call window.fetchFeed(document.querySelector('main#A #actor-input').value.trim())
+  - on 'feed:loaded', clear and rebuild vis DataSet nodes and edges from event.detail
+  - author own posts and external referenced posts get visually distinct treatment
+  - edges labeled 'quotes' or 'replies'
+  - create or recreate vis.Network on document.querySelector('main#A #graph'), store as window.graphNetwork and window.graphNodes
+  - when vis Network 'click' fires with no node selected (background click), set document.querySelector('main#A #preview').style.display to none
+  - do not add a selectNode or node click handler here, that is handled in the next script
+  - use var for all variables
+&w&a=1&p=TASK: output a SCRIPT tag for node click post preview
+  - poll for window.graphNetwork with setTimeout every 200ms
+  - on vis Network 'click', if params.nodes has length get the clicked AT-URI node id
+  - set document.querySelector('main#A #preview') to display:flex and populate with a loading message
+  - fetch: GET https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts%3Furis[]= followed by encodeURIComponent of node id
+  - render in document.querySelector('main#A #preview'): avatar if available, display name, handle, post text, date, engagement counts, link to bsky.app
+  - include a close button inside preview that sets display:none
+  - handle missing or external nodes gracefully with a fallback bsky.app link
+  - use var for all variables
+&w

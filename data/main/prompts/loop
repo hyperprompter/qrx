@@ -1,0 +1,21 @@
+#critique?e&w&p=TASK: output pure JavaScript to inject previous failure critiques
+  - conceptual behavior: this script runs before generation. It checks if the previous loop attempt failed and feeds the reasoning back into the accumulator
+  - do not wrap in script tags, output ONLY pure javascript
+  - read `critique_${filename}` from sessionStorage
+  - if it exists, console.log that a previous critique was found
+  - return v + "\n\nCRITICAL FEEDBACK FROM PREVIOUS ATTEMPT. YOU MUST FIX THIS:\n" + critique
+  - if it does not exist, simply return v
+&w&a=0&f=loop&e&w&p=TASK: output pure JavaScript to act as an autonomous evaluator loop
+  - conceptual behavior: this evaluates 'v'. If broken, it saves a critique to sessionStorage, increments a counter, and reloads.
+  - do not wrap in script tags, output ONLY pure javascript
+  - CRITICAL KERNEL RULE: you CANNOT use top-level await. You MUST wrap your entire logic inside an async IIFE and return it.
+  - start the script with: return (async function() {
+  - inside the IIFE: read 'wiggum_' + filename from sessionStorage, parse as integer, default to 0
+  - if attempts is greater than or equal to 3, clear sessionStorage items, and return v
+  - instruct the AI to review the code in 'v'. Respond with EXACTLY 'TRUE' or 'FALSE', followed by a pipe character, followed by reasoning
+  - call var verdict = await gen("", evaluatorPrompt + "\n\nCODE TO REVIEW:\n" + v)
+  - convert verdict to lower case. if it starts with true or 1 or yes or t, clear sessionStorage and return v
+  - if negative, save attempts + 1 to 'wiggum_' + filename, extract reasoning after the pipe, save to 'critique_' + filename
+  - call location.reload() and return new Promise(function(){})
+  - end the script with exactly: })();
+&w

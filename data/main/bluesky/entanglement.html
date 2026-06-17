@@ -1,0 +1,519 @@
+<script>
+read('https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js','cache').then(function(lib){var s=document.createElement('script');s.textContent=lib;document.querySelector('main#A').appendChild(s)})
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+#header-bar{position:fixed;top:0;left:0;width:100%;height:48px;background:#1a1a2e;display:flex;align-items:center;padding:0 16px;gap:10px;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.4)}
+#actor-input{flex:1;max-width:320px;height:32px;padding:0 10px;border:1px solid #444;border-radius:4px;background:#0f0f1a;color:#e0e0ff;font-size:14px;outline:none}
+#actor-input:focus{border-color:#7b68ee}
+#load-btn{height:32px;padding:0 18px;background:#7b68ee;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;font-weight:600;transition:background 0.2s}
+#load-btn:hover{background:#5a4fcf}
+#status{color:#a0a0c0;font-size:13px;min-width:120px}
+#graph{position:fixed;top:48px;left:0;width:100%;height:calc(100vh - 48px);background:#0a0a1a}
+#preview{display:none;position:fixed;top:48px;right:0;width:50%;height:calc(100vh - 48px);background:#111128;border-left:2px solid #7b68ee;z-index:50;overflow:hidden;flex-direction:column}
+#preview-header{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#1a1a2e;border-bottom:1px solid #333}
+#preview-title{color:#e0e0ff;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:calc(100% - 40px)}
+#preview-close{background:none;border:none;color:#a0a0c0;font-size:20px;cursor:pointer;line-height:1;padding:2px 6px;border-radius:3px}
+#preview-close:hover{background:#333;color:#fff}
+#preview-frame{width:100%;flex:1;border:none;background:#fff}
+</style>
+<div id="header-bar">
+  <input type="text" id="actor-input" value="hypertext.wiki" placeholder="Enter actor/domain..." />
+  <button id="load-btn">Load</button>
+  <span id="status">Ready</span>
+</div>
+<div id="graph"></div>
+<div id="preview">
+  <div id="preview-header">
+    <span id="preview-title">Preview</span>
+    <button id="preview-close">&#x2715;</button>
+  </div>
+  <iframe id="preview-frame" src="about:blank" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+</div><script>
+var feedItems = window.feedItems = [];
+var feedCursor = window.feedCursor = null;
+var feedActor = window.feedActor = null;
+
+window.fetchFeed = async function(actor, resumeCursor) {
+  var limit = 100;
+  var fetched = 0;
+  var cursor = resumeCursor || undefined;
+  var statusEl = document.getElementById('status');
+  var loadMoreBtn = document.getElementById('load-more-btn');
+  if (loadMoreBtn) loadMoreBtn.remove();
+
+  while (fetched < 500) {
+    var url = 'https://public.api.bsky.app/xrpc/app.bsky.feed.getAuthorFeed?actor=' + encodeURIComponent(actor) + '&limit=' + limit;
+    if (cursor) url += '&cursor=' + encodeURIComponent(cursor);
+    statusEl.textContent = 'Fetching... ' + window.feedItems.length + ' posts';
+    var resp;
+    try {
+      resp = await fetch(url);
+    } catch(e) {
+      statusEl.textContent = 'Network error';
+      return;
+    }
+    if (!resp.ok) {
+      statusEl.textContent = 'Error ' + resp.status;
+      return;
+    }
+    var data;
+    try {
+      data = await resp.json();
+    } catch(e) {
+      statusEl.textContent = 'Parse error';
+      return;
+    }
+    var feed = data.feed || [];
+    for (var i = 0; i < feed.length && fetched < 500; i++) {
+      var item = feed[i];
+      var post = item.post;
+      if (!post) continue;
+      var record = post.record || {};
+      var obj = {
+        uri: post.uri,
+        text: record.text || '',
+        embed: record.embed || null,
+        reply: record.reply || null,
+        replyParentUri: null,
+        quoteUri: null
+      };
+      if (record.reply && record.reply.parent && record.reply.parent.uri) {
+        obj.replyParentUri = record.reply.parent.uri;
+      }
+      if (record.embed) {
+        var embedType = record.embed.$type || '';
+        if (embedType.indexOf('embed.record') !== -1) {
+          if (embedType.indexOf('recordWithMedia') !== -1) {
+            if (record.embed.record && record.embed.record.record && record.embed.record.record.uri) {
+              obj.quoteUri = record.embed.record.record.uri;
+            } else if (record.embed.record && record.embed.record.uri) {
+              obj.quoteUri = record.embed.record.uri;
+            }
+          } else {
+            if (record.embed.record && record.embed.record.uri) {
+              obj.quoteUri = record.embed.record.uri;
+            }
+          }
+        }
+      }
+      window.feedItems.push(obj);
+      fetched++;
+    }
+    cursor = data.cursor;
+    if (!cursor || feed.length === 0) {
+      window.feedCursor = null;
+      break;
+    }
+    if (fetched >= 500) {
+      window.feedCursor = cursor;
+      window.feedActor = actor;
+      var btn = document.createElement('button');
+      btn.id = 'load-more-btn';
+      btn.textContent = 'Load more';
+      btn.style.cssText = 'height:32px;padding:0 18px;background:#e07b3a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;font-weight:600;margin-left:4px;';
+      btn.addEventListener('click', function() {
+        window.fetchFeed(window.feedActor, window.feedCursor);
+      });
+      document.getElementById('header-bar').appendChild(btn);
+      break;
+    }
+  }
+  statusEl.textContent = 'Loaded ' + window.feedItems.length + ' posts';
+  window.dispatchEvent(new CustomEvent('feed:loaded', { detail: window.feedItems }));
+};
+
+function startFetch() {
+  var actor = document.getElementById('actor-input').value.trim();
+  if (!actor) return;
+  window.feedItems = [];
+  window.feedCursor = null;
+  window.feedActor = actor;
+  var old = document.getElementById('load-more-btn');
+  if (old) old.remove();
+  window.fetchFeed(actor, null);
+}
+
+document.getElementById('load-btn').addEventListener('click', startFetch);
+document.getElementById('actor-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') startFetch();
+});
+</script><script>
+(function() {
+  function waitForVis() {
+    if (typeof vis === 'undefined') {
+      setTimeout(waitForVis, 100);
+      return;
+    }
+    init();
+  }
+
+  function init() {
+    var actorInput = document.querySelector('main#A #actor-input');
+    var actor = actorInput ? actorInput.value.trim() : '';
+    if (actor) {
+      window.fetchFeed(actor);
+    }
+
+    window.addEventListener('feed:loaded', function(e) {
+      buildGraph(e.detail);
+    });
+  }
+
+  function buildGraph(items) {
+    var graphEl = document.querySelector('main#A #graph');
+    if (!graphEl) return;
+
+    var nodesArray = [];
+    var edgesArray = [];
+    var nodeMap = {};
+
+    var actorDid = null;
+    if (items.length > 0) {
+      var firstUri = items[0].uri;
+      var parts = firstUri.split('/');
+      if (parts.length >= 3) {
+        actorDid = parts[2];
+      }
+    }
+
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      var uri = item.uri;
+      if (!uri) continue;
+
+      if (!nodeMap[uri]) {
+        nodeMap[uri] = true;
+        var shortLabel = uri.split('/').pop() || uri;
+        var labelText = (item.text && item.text.length > 0) ? item.text.substring(0, 40) : shortLabel;
+        nodesArray.push({
+          id: uri,
+          label: labelText,
+          title: item.text || uri,
+          color: {
+            background: '#7b68ee',
+            border: '#5a4fcf',
+            highlight: { background: '#a090ff', border: '#7b68ee' }
+          },
+          font: { color: '#e0e0ff', size: 12 },
+          shape: 'box',
+          isAuthor: true,
+          uri: uri,
+          text: item.text || ''
+        });
+      }
+
+      if (item.replyParentUri) {
+        var parentUri = item.replyParentUri;
+        if (!nodeMap[parentUri]) {
+          nodeMap[parentUri] = true;
+          var parentParts = parentUri.split('/');
+          var parentDid = parentParts.length >= 3 ? parentParts[2] : null;
+          var isOwnReply = (parentDid && actorDid && parentDid === actorDid);
+          nodesArray.push({
+            id: parentUri,
+            label: parentUri.split('/').pop() || parentUri,
+            title: parentUri,
+            color: isOwnReply ? {
+              background: '#7b68ee',
+              border: '#5a4fcf',
+              highlight: { background: '#a090ff', border: '#7b68ee' }
+            } : {
+              background: '#2e2e4e',
+              border: '#e07b3a',
+              highlight: { background: '#4e3e2e', border: '#e07b3a' }
+            },
+            font: { color: '#e0e0ff', size: 11 },
+            shape: 'ellipse',
+            isAuthor: !!isOwnReply,
+            uri: parentUri,
+            text: ''
+          });
+        }
+        edgesArray.push({
+          from: uri,
+          to: parentUri,
+          label: 'replies',
+          arrows: 'to',
+          color: { color: '#a0c0ff', highlight: '#c0d8ff' },
+          font: { color: '#a0c0ff', size: 10, align: 'middle' },
+          dashes: false
+        });
+      }
+
+      if (item.quoteUri) {
+        var quoteUri = item.quoteUri;
+        if (!nodeMap[quoteUri]) {
+          nodeMap[quoteUri] = true;
+          var quoteParts = quoteUri.split('/');
+          var quoteDid = quoteParts.length >= 3 ? quoteParts[2] : null;
+          var isOwnQuote = (quoteDid && actorDid && quoteDid === actorDid);
+          nodesArray.push({
+            id: quoteUri,
+            label: quoteUri.split('/').pop() || quoteUri,
+            title: quoteUri,
+            color: isOwnQuote ? {
+              background: '#7b68ee',
+              border: '#5a4fcf',
+              highlight: { background: '#a090ff', border: '#7b68ee' }
+            } : {
+              background: '#2e2e4e',
+              border: '#e0c03a',
+              highlight: { background: '#4e4e2e', border: '#e0c03a' }
+            },
+            font: { color: '#e0e0ff', size: 11 },
+            shape: 'diamond',
+            isAuthor: !!isOwnQuote,
+            uri: quoteUri,
+            text: ''
+          });
+        }
+        edgesArray.push({
+          from: uri,
+          to: quoteUri,
+          label: 'quotes',
+          arrows: 'to',
+          color: { color: '#ffe080', highlight: '#fff0a0' },
+          font: { color: '#ffe080', size: 10, align: 'middle' },
+          dashes: true
+        });
+      }
+    }
+
+    if (window.graphNetwork) {
+      window.graphNetwork.destroy();
+      window.graphNetwork = null;
+    }
+
+    window.graphNodes = new vis.DataSet(nodesArray);
+    var graphEdges = new vis.DataSet(edgesArray);
+
+    var data = {
+      nodes: window.graphNodes,
+      edges: graphEdges
+    };
+
+    var options = {
+      physics: {
+        enabled: true,
+        solver: 'barnesHut',
+        barnesHut: {
+          gravitationalConstant: -8000,
+          springLength: 120,
+          springConstant: 0.04
+        },
+        stabilization: { iterations: 200 }
+      },
+      interaction: {
+        hover: true,
+        tooltipDelay: 200
+      },
+      edges: {
+        smooth: { type: 'dynamic' }
+      },
+      layout: {
+        improvedLayout: false
+      }
+    };
+
+    window.graphNetwork = new vis.Network(graphEl, data, options);
+
+    window.graphNetwork.on('click', function(params) {
+      if (!params.nodes || params.nodes.length === 0) {
+        var preview = document.querySelector('main#A #preview');
+        if (preview) {
+          preview.style.display = 'none';
+        }
+      }
+    });
+  }
+
+  waitForVis();
+})();
+</script><script>
+(function() {
+  function pollForNetwork() {
+    if (!window.graphNetwork) {
+      setTimeout(pollForNetwork, 200);
+      return;
+    }
+    window.graphNetwork.on('click', function(params) {
+      if (!params.nodes || params.nodes.length === 0) return;
+      var nodeId = params.nodes[0];
+      showPreview(nodeId);
+    });
+  }
+
+  function showPreview(uri) {
+    var preview = document.querySelector('main#A #preview');
+    var previewTitle = document.querySelector('main#A #preview-title');
+    var previewFrame = document.querySelector('main#A #preview-frame');
+    var previewClose = document.querySelector('main#A #preview-close');
+    var graph = document.querySelector('main#A #graph');
+
+    if (!preview) return;
+
+    preview.style.display = 'flex';
+    if (graph) {
+      graph.style.width = '50%';
+    }
+
+    if (previewTitle) previewTitle.textContent = 'Loading...';
+
+    if (previewFrame) previewFrame.src = 'about:blank';
+
+    var contentArea = document.querySelector('main#A #preview-content');
+    if (!contentArea) {
+      contentArea = document.createElement('div');
+      contentArea.id = 'preview-content';
+      contentArea.style.cssText = 'flex:1;overflow-y:auto;padding:16px;color:#e0e0ff;font-family:sans-serif;font-size:14px;line-height:1.5;background:#111128;';
+      var frame = document.querySelector('main#A #preview-frame');
+      if (frame) {
+        frame.parentNode.replaceChild(contentArea, frame);
+      } else {
+        preview.appendChild(contentArea);
+      }
+    }
+
+    contentArea.innerHTML = '<div style="color:#a0a0c0;padding:20px 0;">Loading post...</div>';
+
+    if (previewClose) {
+      var newClose = previewClose.cloneNode(true);
+      previewClose.parentNode.replaceChild(newClose, previewClose);
+      newClose.addEventListener('click', function() {
+        preview.style.display = 'none';
+        if (graph) graph.style.width = '100%';
+      });
+    }
+
+    var isAtUri = uri && uri.indexOf('at://') === 0;
+    if (!isAtUri) {
+      renderFallback(uri, contentArea, previewTitle);
+      return;
+    }
+
+    var fetchUrl = 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?uris[]=' + encodeURIComponent(uri);
+    fetch(fetchUrl).then(function(resp) {
+      if (!resp.ok) {
+        renderFallback(uri, contentArea, previewTitle);
+        return null;
+      }
+      return resp.json();
+    }).then(function(data) {
+      if (!data) return;
+      var posts = data.posts || [];
+      if (posts.length === 0) {
+        renderFallback(uri, contentArea, previewTitle);
+        return;
+      }
+      var post = posts[0];
+      renderPost(post, uri, contentArea, previewTitle);
+    }).catch(function() {
+      renderFallback(uri, contentArea, previewTitle);
+    });
+  }
+
+  function renderPost(post, uri, contentArea, previewTitle) {
+    var author = post.author || {};
+    var record = post.record || {};
+    var text = record.text || '';
+    var displayName = author.displayName || author.handle || 'Unknown';
+    var handle = author.handle || '';
+    var avatar = author.avatar || '';
+    var indexedAt = post.indexedAt || record.createdAt || '';
+    var likeCount = post.likeCount || 0;
+    var replyCount = post.replyCount || 0;
+    var repostCount = post.repostCount || 0;
+    var quoteCount = post.quoteCount || 0;
+
+    var dateStr = '';
+    if (indexedAt) {
+      try {
+        var d = new Date(indexedAt);
+        dateStr = d.toLocaleString();
+      } catch(e) {
+        dateStr = indexedAt;
+      }
+    }
+
+    var bskyUrl = '';
+    if (handle && uri) {
+      var uriParts = uri.split('/');
+      var rkey = uriParts[uriParts.length - 1];
+      bskyUrl = 'https://bsky.app/profile/' + handle + '/post/' + rkey;
+    }
+
+    if (previewTitle) previewTitle.textContent = displayName + (handle ? ' @' + handle : '');
+
+    var avatarHtml = '';
+    if (avatar) {
+      avatarHtml = '<img src="' + escapeAttr(avatar) + '" alt="avatar" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;" onerror="this.style.display=\'none\'" />';
+    } else {
+      avatarHtml = '<div style="width:48px;height:48px;border-radius:50%;background:#2e2e4e;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#7b68ee;font-size:20px;">&#9786;</div>';
+    }
+
+    var textHtml = escapeHtml(text).replace(/\n/g, '<br>');
+
+    var engagementHtml = '<div style="display:flex;gap:18px;margin-top:14px;color:#a0a0c0;font-size:13px;">' +
+      '<span>&#128172; ' + replyCount + '</span>' +
+      '<span>&#128257; ' + repostCount + '</span>' +
+      '<span>&#10084; ' + likeCount + '</span>' +
+      (quoteCount ? '<span>&#128221; ' + quoteCount + '</span>' : '') +
+      '</div>';
+
+    var linkHtml = bskyUrl ? '<div style="margin-top:14px;"><a href="' + escapeAttr(bskyUrl) + '" target="_blank" rel="noopener" style="color:#7b68ee;text-decoration:none;font-size:13px;border:1px solid #7b68ee;padding:4px 12px;border-radius:4px;">Open on Bluesky &#8599;</a></div>' : '';
+
+    var html = '<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px;">' +
+      avatarHtml +
+      '<div style="min-width:0;">' +
+      '<div style="font-weight:700;color:#e0e0ff;font-size:15px;">' + escapeHtml(displayName) + '</div>' +
+      (handle ? '<div style="color:#7b68ee;font-size:12px;">@' + escapeHtml(handle) + '</div>' : '') +
+      '</div>' +
+      '</div>' +
+      '<div style="color:#e0e0ff;font-size:15px;line-height:1.6;word-break:break-word;white-space:pre-wrap;">' + textHtml + '</div>' +
+      (dateStr ? '<div style="margin-top:10px;color:#606080;font-size:12px;">' + escapeHtml(dateStr) + '</div>' : '') +
+      '<div style="border-top:1px solid #2e2e4e;margin-top:12px;padding-top:2px;">' +
+      engagementHtml +
+      linkHtml +
+      '</div>';
+
+    contentArea.innerHTML = html;
+  }
+
+  function renderFallback(uri, contentArea, previewTitle) {
+    if (previewTitle) previewTitle.textContent = 'External Post';
+    var bskyUrl = '';
+    if (uri && uri.indexOf('at://') === 0) {
+      var uriParts = uri.replace('at://', '').split('/');
+      var did = uriParts[0] || '';
+      var rkey = uriParts[uriParts.length - 1] || '';
+      if (did && rkey) {
+        bskyUrl = 'https://bsky.app/profile/' + did + '/post/' + rkey;
+      }
+    }
+    var linkHtml = bskyUrl
+      ? '<a href="' + escapeAttr(bskyUrl) + '" target="_blank" rel="noopener" style="color:#7b68ee;text-decoration:none;font-size:13px;border:1px solid #7b68ee;padding:4px 12px;border-radius:4px;">Open on Bluesky &#8599;</a>'
+      : '<span style="color:#606080;font-size:13px;word-break:break-all;">' + escapeHtml(uri || 'Unknown URI') + '</span>';
+    contentArea.innerHTML = '<div style="color:#a0a0c0;margin-bottom:12px;font-size:13px;">Post data unavailable or external node.</div>' +
+      '<div style="color:#606080;font-size:11px;word-break:break-all;margin-bottom:16px;">' + escapeHtml(uri || '') + '</div>' +
+      linkHtml;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeAttr(str) {
+    if (!str) return '';
+    return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  pollForNetwork();
+})();
+</script>

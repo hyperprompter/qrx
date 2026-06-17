@@ -1,0 +1,11 @@
+#tools/scrape?a=0&e=/* Fetches readable text content. Input MUST be a valid URL. */
+let p = `http://localhost:3000/proxy\x3Furl=${encodeURIComponent(INPUT)}`;
+try {
+  let r = await fetch(p);
+  if (!r.ok) return `Http Error: ${r.status}`;
+  let t = await r.text();
+  return t.slice(0, 15000);
+} catch(e) { 
+  return `Fetch failed: ${e.message}`; 
+}
+&w
