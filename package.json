@@ -1,0 +1,19 @@
+{
+  "name": "qrx",
+  "version": "26.06.16",
+  "type": "module",
+  "description": "hyperprompting REPL that fits in a qrcode",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --env-file=.env server.js",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "html-minifier-terser": "^7.2.0",
+    "qrcode": "^1.5.4",
+    "vite": "^7.3.1"
+  },
+  "devDependencies": {
+    "vite-plugin-pwa": "^1.2.0"
+  }
+}
