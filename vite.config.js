@@ -75,7 +75,7 @@ const qrCodePlugin = (base) => ({
      */
     const bootloader = `
     <script>
-      // Resolve namespace from hostname against the index; fall back to 'main'
+
       window.NS = fetch('${base}data/index.json')
         .then(r => r.ok ? r.json() : [])
         .then(list => {
@@ -85,7 +85,7 @@ const qrCodePlugin = (base) => ({
         .catch(() => 'main');
 
       (async function boot() {
-        // Wait until kernel DB helpers are available
+
         if (typeof getDB === 'undefined' || typeof keys === 'undefined' || typeof write === 'undefined') {
           return setTimeout(boot, 50);
         }
@@ -97,15 +97,15 @@ const qrCodePlugin = (base) => ({
 
           if (isFirstBoot && typeof A !== 'undefined') A.innerText = 'Syncing Dataverse...';
 
-          // Fetch the manifest of all known namespace/key paths
+
           let res = await fetch('${base}data/index.json');
           if (!res.ok) throw new Error('Could not reach data/index.json');
           let list = await res.json();
 
-          // Persist the index itself into the main DB
+
           await queryDB(tx('readwrite', mainDB).put(JSON.stringify(list), 'index.json'));
 
-          // Determine which key to prioritize syncing for this page load
+
           let pathNs = location.pathname.split('/')[1] || await window.NS || 'main';
           let currentHash = location.hash.replace('#', '') || 'main';
           let targetItem = pathNs + '/' + currentHash;
@@ -122,7 +122,7 @@ const qrCodePlugin = (base) => ({
             let exists = targetKeys.includes(key);
 
             if (item === targetItem || item === mainFallbackItem || key.startsWith('boot/')) {
-              // Eagerly fetch and sync priority keys: current target and all boot/ entries
+
               let contentRes = await fetch('${base}read', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -132,14 +132,14 @@ const qrCodePlugin = (base) => ({
                 let data = await contentRes.json();
                 let text = data.value !== undefined ? data.value : '';
                 let localVal = exists ? await queryDB(tx('readonly', targetDB).get(key)) : null;
-                // Only write and flag reload if content has actually changed
+
                 if (localVal !== text) {
                   await queryDB(tx('readwrite', targetDB).put(text, key));
                   needsReload = true;
                 }
               }
             } else if (!exists) {
-              // Stub unknown keys as empty strings so they appear in the key listing
+
               await queryDB(tx('readwrite', targetDB).put('', key));
             }
           }

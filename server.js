@@ -196,7 +196,7 @@ createServer(async (req, res) => {
         // this tells the kernel which DB to use without a URL path segment
         const host = (req.headers.host || '').split(':')[0]
         if (host && existsSync(join(DATA_DIR, host))) {
-          html = html.replace('<script id=S>', `<script>window.NS="${host}"</script><script id=S>`)
+          html = html.replace('<body>', `<body><script>window.NS="${host}"</script>`)
         }
 
         res.writeHead(200, { 'Content-Type': 'text/html' })
@@ -227,7 +227,7 @@ createServer(async (req, res) => {
     req.on('end', async () => {
       try {
         const { namespace, key, value, clientId } = JSON.parse(body)
-        if (!SECRET || req.headers.authorization !== SECRET) {
+        if (SECRET && req.headers.authorization !== SECRET) {
           return res.writeHead(401).end(JSON.stringify({ error: 'Unauthorized' }))
         }
         const fsKey = toFsKey(key)
@@ -291,5 +291,5 @@ createServer(async (req, res) => {
 
   res.writeHead(404).end('Not Found')
 }).listen(PORT, '0.0.0.0', () => {
-  console.log(`Fog Node active on http://0.0.0.0:${PORT}`)
+  console.log(`Server started on http://0.0.0.0:${PORT}`)
 })
