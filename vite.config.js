@@ -170,8 +170,10 @@ function buildStaticBootloader(base) {
             let ns = parts[0];
             let key = parts.slice(1).join('/');
 
-            // Cache namespace is runtime-only on static hosting — skip entirely.
-            // The ?u= fetch path writes to IndexedDB directly at runtime.
+            /**
+             * Cache namespace is runtime-only on static hosting — skip entirely.
+             * The ?u= fetch path writes to IndexedDB directly at runtime.
+             */
             if (ns === 'cache') continue;
 
             let targetDB = await getDB(ns);
@@ -180,7 +182,9 @@ function buildStaticBootloader(base) {
 
             if (item === targetItem || key.startsWith('boot/')) {
 
-              // Static GET instead of POST /read
+              /**
+               * Static GET instead of POST /read
+               */
               let contentRes = await fetch('${base}data/' + ns + '/' + key);
               if (contentRes.ok) {
                 let text = await contentRes.text();
