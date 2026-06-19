@@ -62,9 +62,16 @@ The build produces a `dist/index.html` in three stages:
 2. **QR Code** — A QR code is generated from the bare kernel and written to `public/index.qr.png`. This happens before any wrapping so the QR payload is as small as possible
 3. **Bootloader injection** — The kernel is wrapped in a full HTML document structure (`<!DOCTYPE html><html><head>…</head><body>…</body></html>`), PWA manifest and service worker registration are injected into `<head>`, and the bootloader script is appended into `<body>`
 
-No worries at all, this has been a genuinely tricky debugging session.
+### Static Deploys (GitHub Pages, etc.)
 
-Here's the blurb to paste into the Developer Notes section:
+`npm run build:github` mirrors `server.js`'s namespace logic at build time instead of runtime — it reads `QRX_INCLUDE_NAMESPACES` and copies only the allowed namespaces from `data/` into `public/data/`, then generates a static `public/data/index.json`.
+
+This means `QRX_INCLUDE_NAMESPACES` currently has to be set in **two places** and kept in sync manually:
+
+- **`.env`** — controls what your live `server.js` instance serves publicly
+- **`deploy.yml`** (`QRX_INCLUDE_NAMESPACES` under the `Build for GitHub Pages` step) — controls what gets baked into the static GitHub Pages build
+
+If you add a namespace and only update `.env`, your server will serve it but your static GitHub Pages deploy won't — it'll silently fall back to whatever was last baked in. There's no automated sync between the two yet, so for now, **remember to update `deploy.yml` whenever you change `QRX_INCLUDE_NAMESPACES` in `.env`**, especially if you want the static deploy to match your server's namespace visibility.
 
 ## What the Bootloader Does
 
