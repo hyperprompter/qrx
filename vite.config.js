@@ -134,10 +134,34 @@ function buildServerBootloader(base) {
  *     time; that doesn't exist on static hosting, so we just fall back to 'main').
  */
 function buildStaticBootloader(base) {
+  // base is e.g. '/qrx/' — strip trailing slash for pathname comparison
+  const basePath = base.replace(/\/$/, '')
+
+  // USE MULTILINE COMMENTS HERE - OTHERWISE IT GETS MINIFIED AND //COMMENTED OUT
   return `
     <script>
 
-      window.NS = Promise.resolve('main');
+      /**
+       * Restore path redirected via 404.html (GitHub Pages SPA trick)
+       */
+      (function() {
+        let q = new URLSearchParams(location.search).get('p');
+        if (q) {
+          let path = q.replace(/~and~/g, '&');
+          history.replaceState(null, '', path + location.hash);
+        }
+      })();
+
+      /**
+       * Extract namespace from pathname, stripping the base path prefix
+       */
+      (function() {
+        let base = '${basePath}';
+        let pathname = location.pathname;
+        let relative = pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
+        let ns = relative.split('/').filter(Boolean)[0] || 'main';
+        window.NS = Promise.resolve(ns === 'data' ? 'main' : ns);
+      })();
 
       (async function boot() {
 
@@ -161,8 +185,9 @@ function buildStaticBootloader(base) {
           await queryDB(tx('readwrite', mainDB).put(JSON.stringify(list), 'index.json'));
 
 
+          let activeNS = await window.NS || 'main';
           let currentHash = location.hash.replace('#', '') || 'main';
-          let targetItem = 'main/' + currentHash;
+          let targetItem = activeNS + '/' + currentHash;
           let needsReload = false;
 
           for (let item of list) {
@@ -243,6 +268,23 @@ const qrCodePlugin = (base, isGitHubPages) => ({
 
     const final = html.replace('</body>', bootloader.replace(/\s+/g, ' ') + '</body>')
     writeFileSync(filePath, final)
+
+    // GitHub Pages SPA routing: 404.html redirects unknown paths back to index.html
+    // encoding the original path as ?p= so the bootloader can restore it.
+    if (isGitHubPages) {
+      const notFoundHtml = `<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<script>
+  var l = window.location;
+  var base = '${base}';
+  l.replace(base + '?' + 'p=' + encodeURIComponent(
+    l.pathname.slice(base.length - 1) + l.search + l.hash
+  ).replace(/%20/g,'+').replace(/%26/g,'~and~'));
+<\/script>
+</head><body></body></html>`
+      writeFileSync(resolve(__dirname, 'dist/404.html'), notFoundHtml)
+      console.log('  404.html written for GitHub Pages SPA routing\n')
+    }
   },
 })
 
@@ -275,7 +317,7 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
-          globIgnores: ['**/404.html'],
+          globIgnores: [],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
