@@ -5,6 +5,8 @@ import { resolve } from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const __dirname = resolve()
+
 /**
  * Minifies the final index.html after all transforms.
  * Also prepends a minimal <head> stub so VitePWA can find it during its
@@ -26,54 +28,19 @@ const htmlMinifierPlugin = () => ({
       processConditionalComments: true,
       removeOptionalTags: true,
     })
-    // Wrap with real document structure so VitePWA's pipeline scan finds <head>
-    // and injects manifest + SW registration. writeBundle will read the final
-    // dist file which already has these tags, then prepend the QR-safe kernel.
     return `<!DOCTYPE html><html><head></head><body>${minified}</body></html>`
   },
 })
 
 /**
- * Post-build plugin that, in strict order:
- *   1. Reads the built index.html (now has full doc structure + PWA injections).
- *   2. Extracts the bare kernel from inside <body> for QR code generation.
- *   3. Generates a QR code from the bare kernel — must be as small as possible.
- *   4. Appends the bootloader into the existing <body>.
- *   5. Writes the final file.
+ * Builds the bootloader script for server deployments.
+ *
+ * Resolves namespace from hostname, fetches data/index.json, then for each
+ * known key either syncs content via POST /read (for target/boot keys) or
+ * stubs empty strings. Reloads on first boot or when content has changed.
  */
-const qrCodePlugin = (base) => ({
-  name: 'qr-code-plugin',
-  async writeBundle() {
-    const filePath = resolve(__dirname, 'dist/index.html')
-    const html = readFileSync(filePath, 'utf-8')
-
-    // Extract bare kernel from inside <body> for QR — strip all doc structure
-    const kernel = html.match(/<body>([\s\S]*?)<\/body>/)?.[1] ?? html
-
-    // Generate QR from the bare kernel before any bootloader is appended
-    const kernelBytes = Buffer.byteLength(kernel, 'utf-8')
-    console.log(`\n  QR kernel: ${kernelBytes} bytes (QR-L cap: 2953 bytes, ${2953 - kernelBytes} remaining)\n`)
-    await QRCode.toFile(resolve(__dirname, 'public/index.qr.png'), kernel, {
-      errorCorrectionLevel: 'L',
-      type: 'png',
-      width: 1000,
-      margin: 1,
-    })
-
-    /**
-     * Bootloader: runs on every page load after the kernel is ready.
-     *
-     * Responsibilities:
-     *   - Resolves the active namespace from the hostname or falls back to 'main'.
-     *   - Fetches data/index.json to get the full list of known keys.
-     *   - Syncs the target key (and any boot/ keys) from the server into IndexedDB.
-     *   - Stubs out all other known keys as empty strings if not already present.
-     *   - Reloads the page on first boot or when any content has changed.
-     *
-     * Waits for getDB / keys / write to be defined before running,
-     * polling every 50ms to handle async kernel initialization.
-     */
-    const bootloader = `
+function buildServerBootloader(base) {
+  return `
     <script>
 
       window.NS = fetch('${base}data/index.json')
@@ -152,8 +119,124 @@ const qrCodePlugin = (base) => ({
         }
       })();
     </script>`
+}
 
-    // Inject bootloader just before </body> in the already-structured HTML
+/**
+ * Builds the bootloader script for GitHub Pages (static) deployments.
+ *
+ * Key differences from the server bootloader:
+ *   - Skips the 'cache' namespace entirely — cache keys are URL-derived and
+ *     not meaningful as static files; the ?u= fetch path handles caching at
+ *     runtime via IndexedDB anyway, and on GitHub Pages you're always online.
+ *   - Replaces POST /read with a plain GET to the static file path:
+ *     fetch(`${base}data/${ns}/${key}`) instead of fetch('${base}read', { method: 'POST', ... })
+ *   - No hostname-based NS resolution (server.js injects window.NS at serve
+ *     time; that doesn't exist on static hosting, so we just fall back to 'main').
+ */
+function buildStaticBootloader(base) {
+  return `
+    <script>
+
+      window.NS = Promise.resolve('main');
+
+      (async function boot() {
+
+        if (typeof getDB === 'undefined' || typeof keys === 'undefined' || typeof write === 'undefined') {
+          return setTimeout(boot, 50);
+        }
+
+        try {
+          let mainDB = await getDB();
+          let k = await keys(undefined, mainDB);
+          let isFirstBoot = k.length === 0;
+
+          if (isFirstBoot && typeof A !== 'undefined') A.innerText = 'Syncing Dataverse...';
+
+
+          let res = await fetch('${base}data/index.json');
+          if (!res.ok) throw new Error('Could not reach data/index.json');
+          let list = await res.json();
+
+
+          await queryDB(tx('readwrite', mainDB).put(JSON.stringify(list), 'index.json'));
+
+
+          let currentHash = location.hash.replace('#', '') || 'main';
+          let targetItem = 'main/' + currentHash;
+          let needsReload = false;
+
+          for (let item of list) {
+            let parts = item.split('/');
+            let ns = parts[0];
+            let key = parts.slice(1).join('/');
+
+            // Cache namespace is runtime-only on static hosting — skip entirely.
+            // The ?u= fetch path writes to IndexedDB directly at runtime.
+            if (ns === 'cache') continue;
+
+            let targetDB = await getDB(ns);
+            let targetKeys = await keys(undefined, targetDB);
+            let exists = targetKeys.includes(key);
+
+            if (item === targetItem || key.startsWith('boot/')) {
+
+              // Static GET instead of POST /read
+              let contentRes = await fetch('${base}data/' + ns + '/' + key);
+              if (contentRes.ok) {
+                let text = await contentRes.text();
+                let localVal = exists ? await queryDB(tx('readonly', targetDB).get(key)) : null;
+
+                if (localVal !== text) {
+                  await queryDB(tx('readwrite', targetDB).put(text, key));
+                  needsReload = true;
+                }
+              }
+            } else if (!exists) {
+
+              await queryDB(tx('readwrite', targetDB).put('', key));
+            }
+          }
+
+          if (isFirstBoot || needsReload) {
+            location.reload();
+          }
+        } catch (e) {
+          console.error('[Bootloader] Failed:', e);
+        }
+      })();
+    </script>`
+}
+
+/**
+ * Post-build plugin that, in strict order:
+ *   1. Reads the built index.html (now has full doc structure + PWA injections).
+ *   2. Extracts the bare kernel from inside <body> for QR code generation.
+ *   3. Generates a QR code from the bare kernel — must be as small as possible.
+ *   4. Appends the appropriate bootloader into the existing <body>,
+ *      chosen based on whether GITHUB_PAGES env var is set.
+ *   5. Writes the final file.
+ */
+const qrCodePlugin = (base, isGitHubPages) => ({
+  name: 'qr-code-plugin',
+  async writeBundle() {
+    const filePath = resolve(__dirname, 'dist/index.html')
+    const html = readFileSync(filePath, 'utf-8')
+
+    const kernel = html.match(/<body>([\s\S]*?)<\/body>/)?.[1] ?? html
+
+    const kernelBytes = Buffer.byteLength(kernel, 'utf-8')
+    console.log(`\n  QR kernel: ${kernelBytes} bytes (QR-L cap: 2953 bytes, ${2953 - kernelBytes} remaining)\n`)
+    await QRCode.toFile(resolve(__dirname, 'public/index.qr.png'), kernel, {
+      errorCorrectionLevel: 'L',
+      type: 'png',
+      width: 1000,
+      margin: 1,
+    })
+
+    const bootloader = isGitHubPages
+      ? buildStaticBootloader(base)
+      : buildServerBootloader(base)
+
     const final = html.replace('</body>', bootloader.replace(/\s+/g, ' ') + '</body>')
     writeFileSync(filePath, final)
   },
@@ -162,6 +245,11 @@ const qrCodePlugin = (base) => ({
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const baseUrl = process.env.BASE_URL || env.BASE_URL || '/'
+  const isGitHubPages = process.env.GITHUB_PAGES === 'true'
+
+  if (isGitHubPages) {
+    console.log('\n  Building for GitHub Pages (static bootloader)\n')
+  }
 
   return {
     base: baseUrl,
@@ -191,7 +279,7 @@ export default defineConfig(({ mode }) => {
         },
       }),
       htmlMinifierPlugin(),
-      qrCodePlugin(baseUrl),
+      qrCodePlugin(baseUrl, isGitHubPages),
     ],
     build: {
       minify: 'terser',
