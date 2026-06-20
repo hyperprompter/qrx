@@ -33,7 +33,8 @@ The kernel exposes the following variables and methods
 | Variable | Description |
 | :--- | :--- |
 | **`filename`** | **File Pointer**. The name of the current record being read from or written to. Defaults to `MAIN` or the value before `?` in the hash. |
-| **`DB`** | **Database Name**. The name of the active IndexedDB instance, derived from the URL path (e.g., `/private` sets `DB` to `'private'`). |
+| **`BASE`** | **Deployment Prefix**. A path segment stripped from the front of the URL before `DB` is derived. Defaults to `''` (root hosting). Set it by declaring `BASE='/yourprefix'` in a `<script>` tag placed *after* `<script id=S>` (the kernel's own line runs first and would otherwise be overwritten). Lets the same kernel resolve namespaces correctly whether it's hosted at `/` or under a subdirectory like `/qrx/`. |
+| **`DB`** | **Database Name**. The name of the active IndexedDB instance, derived from the URL path with `BASE` and any leading/trailing slashes stripped (e.g. `/qrx/wiki` with `BASE='/qrx/'` sets `DB` to `'wiki'`). |
 | **`MAIN`** | **Kernel Name**. The default database name (`'main'`). Used as the fallback/system database when `DB` is set to something else. |
 | **`os`** | **System DB Handle**. A reference to the `MAIN` database connection. Used for "inheritance"—if a file isn't found in `DB`, `read()` looks here. |
 | **`db`** | **Active DB Handle**. The raw `IDBDatabase` connection object for the current `DB`. |
@@ -62,9 +63,32 @@ The build produces a `dist/index.html` in three stages:
 2. **QR Code** — A QR code is generated from the bare kernel and written to `public/index.qr.png`. This happens before any wrapping so the QR payload is as small as possible
 3. **Bootloader injection** — The kernel is wrapped in a full HTML document structure (`<!DOCTYPE html><html><head>…</head><body>…</body></html>`), PWA manifest and service worker registration are injected into `<head>`, and the bootloader script is appended into `<body>`
 
-No worries at all, this has been a genuinely tricky debugging session.
+### Static Deploys (GitHub Pages, etc.)
 
-Here's the blurb to paste into the Developer Notes section:
+`npm run build:github` mirrors `server.js`'s namespace logic at build time instead of runtime — it reads `QRX_INCLUDE_NAMESPACES` and copies only the allowed namespaces from `data/` into `public/data/`, then generates a static `public/data/index.json`.
+
+This means `QRX_INCLUDE_NAMESPACES` currently has to be set in **two places** and kept in sync manually:
+
+- **`.env`** — controls what your live `server.js` instance serves publicly
+- **`deploy.yml`** (`QRX_INCLUDE_NAMESPACES` under the `Build for GitHub Pages` step) — controls what gets baked into the static GitHub Pages build
+
+If you add a namespace and only update `.env`, your server will serve it but your static GitHub Pages deploy won't — it'll silently fall back to whatever was last baked in. There's no automated sync between the two yet, so for now, **remember to update `deploy.yml` whenever you change `QRX_INCLUDE_NAMESPACES` in `.env`**, especially if you want the static deploy to match your server's namespace visibility.
+
+#### Subdirectory Hosting (`BASE_URL`)
+
+GitHub Pages project sites are served from a subdirectory (e.g. `https://you.github.io/qrx/`), not root. `deploy.yml` already sets this via the `BASE_URL` env var on the `Build for GitHub Pages` step — it's used both for Vite's own asset paths and to set the kernel's `BASE` variable, so namespace resolution works the same under a subdirectory as it does at root. You shouldn't need to touch this unless your repo name (and therefore your Pages path) changes — if so, update `BASE_URL` in `deploy.yml` to match.
+
+`.env` is never read during the GitHub Actions build (it's not committed to the repo), so this kind of build-time config always belongs in `deploy.yml`'s `env:` block, not `.env` — same reasoning as the `QRX_INCLUDE_NAMESPACES` duplication above.
+
+#### Why GitHub Pages Needs a `404.html`
+
+GitHub Pages only serves real files. A URL like `/qrx/wiki` has no matching file on disk, so GitHub Pages returns its `404.html` for it instead of an error page — this build generates one automatically that:
+
+1. Saves the real path (e.g. `/qrx/wiki`) into `sessionStorage`
+2. Redirects to the site root, carrying the hash through directly (hashes survive a redirect for free; the path doesn't, since it's a different document)
+3. Once `index.html` loads, a small injected script restores the real path via `history.replaceState` before the kernel reads it — so by the time the kernel runs, it sees `/qrx/wiki` exactly as if that URL had loaded directly
+
+This makes deep links and page refreshes work normally on GitHub Pages despite there being no actual server-side routing.
 
 ## What the Bootloader Does
 
