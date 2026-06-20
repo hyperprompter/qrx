@@ -1,5 +1,6 @@
 <main id=A></main>
 <script id=S>
+BASE = ''
 setTimeout(async () => {
   // manually compressed shorthands
   L = location
@@ -11,14 +12,11 @@ setTimeout(async () => {
   TL = 'toLowerCase'
   RO = 'readonly'
   HR=history.replaceState.bind(history)
-  RW = 'readwrite'
 
   // default indexedDB name
   WNS = await window.NS
   filename = MAIN = 'main'
-  DB = LP.slice(1) || WNS || MAIN
-  COS = 'createObjectStore'
-  !L.hash && HR(0, '', `#${MAIN}`)
+  DB = (LP.startsWith(BASE) ? LP.slice(BASE.length) : LP).replace(/^\/|\/$/g, '') || WNS || MAIN
 
   // default table name
   FILES = 'files'
@@ -35,7 +33,7 @@ setTimeout(async () => {
   // t: table name
   getDB = (n = DB, t = FILES) => {
     let q = indexedDB.open(n)
-    q.onupgradeneeded = e => e[T].result[COS](t)
+    q.onupgradeneeded = e => e[T].result.createObjectStore(t)
     return queryDB(q, e => e[T].result)
   }
 
@@ -48,7 +46,7 @@ setTimeout(async () => {
   // m: transaction mode
   // d: database
   tx = (m = RO, d = db, t = FILES) => d.transaction(t, m).objectStore(t)
-  write=async(v,k,d=db,n=filename)=>(d=d.trim?await getDB(d):d,queryDB(tx(RW,d).put(v,k||n)))
+  write=async(v,k,d=db,n=filename)=>(d=d.trim?await getDB(d):d,queryDB(tx('readwrite',d).put(v,k||n)))
   read = async (k, d = db) => {
     d = d.trim ? await getDB(d) : d
     let v = await queryDB(tx(RO, d).get(k || filename))
