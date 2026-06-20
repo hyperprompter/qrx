@@ -73,7 +73,7 @@ function buildServerBootloader(base) {
           await queryDB(tx('readwrite', mainDB).put(JSON.stringify(list), 'index.json'));
 
 
-          let pathNs = location.pathname.split('/')[1] || await window.NS || 'main';
+          let pathNs = DB;
           let currentHash = location.hash.replace('#', '') || 'main';
           let targetItem = pathNs + '/' + currentHash;
           let mainFallbackItem = 'main/' + currentHash;
@@ -134,34 +134,8 @@ function buildServerBootloader(base) {
  *     time; that doesn't exist on static hosting, so we just fall back to 'main').
  */
 function buildStaticBootloader(base) {
-  // base is e.g. '/qrx/' — strip trailing slash for pathname comparison
-  const basePath = base.replace(/\/$/, '')
-
-  // USE MULTILINE COMMENTS HERE - OTHERWISE IT GETS MINIFIED AND //COMMENTED OUT
   return `
     <script>
-
-      /**
-       * Restore path redirected via 404.html (GitHub Pages SPA trick)
-       */
-      (function() {
-        let q = new URLSearchParams(location.search).get('p');
-        if (q) {
-          let path = q.replace(/~and~/g, '&');
-          history.replaceState(null, '', path + location.hash);
-        }
-      })();
-
-      /**
-       * Extract namespace from pathname, stripping the base path prefix
-       */
-      (function() {
-        let base = '${basePath}';
-        let pathname = location.pathname;
-        let relative = pathname.startsWith(base) ? pathname.slice(base.length) : pathname;
-        let ns = relative.split('/').filter(Boolean)[0] || 'main';
-        window.NS = Promise.resolve(ns === 'data' ? 'main' : ns);
-      })();
 
       (async function boot() {
 
@@ -185,7 +159,7 @@ function buildStaticBootloader(base) {
           await queryDB(tx('readwrite', mainDB).put(JSON.stringify(list), 'index.json'));
 
 
-          let activeNS = await window.NS || 'main';
+          let activeNS = DB;
           let currentHash = location.hash.replace('#', '') || 'main';
           let targetItem = activeNS + '/' + currentHash;
           let needsReload = false;
@@ -262,24 +236,37 @@ const qrCodePlugin = (base, isGitHubPages) => ({
       margin: 1,
     })
 
+    const baseInject = isGitHubPages ? `<script>
+      BASE='${base}';
+      (function(){
+        var p = sessionStorage.getItem('qrx_path');
+        if (!p) return;
+        sessionStorage.removeItem('qrx_path');
+        history.replaceState(null, '', p + location.hash);
+      })();
+    </script>` : ''
     const bootloader = isGitHubPages
       ? buildStaticBootloader(base)
       : buildServerBootloader(base)
 
-    const final = html.replace('</body>', bootloader.replace(/\s+/g, ' ') + '</body>')
+    const final = html.replace('</body>', baseInject + bootloader.replace(/\s+/g, ' ') + '</body>')
     writeFileSync(filePath, final)
 
-    // GitHub Pages SPA routing: 404.html redirects unknown paths back to index.html
-    // encoding the original path as ?p= so the bootloader can restore it.
+    // GitHub Pages SPA routing: GitHub Pages 404s any path that isn't a real
+    // file (e.g. /qrx/wiki). 404.html stashes the real pathname in
+    // sessionStorage and redirects to bare base, carrying the hash through
+    // directly on the redirect URL (hash survives a redirect for free).
+    // baseInject (runs after the kernel's BASE='' line but before its
+    // setTimeout body executes) sets BASE and restores the real pathname via
+    // replaceState, so by the time the kernel reads LP, it's identical to a
+    // normal direct load — the kernel's own BASE-stripping in DB derivation
+    // handles the rest unmodified.
     if (isGitHubPages) {
       const notFoundHtml = `<!DOCTYPE html><html><head>
 <meta charset="utf-8">
 <script>
-  var l = window.location;
-  var base = '${base}';
-  l.replace(base + '?' + 'p=' + encodeURIComponent(
-    l.pathname.slice(base.length - 1) + l.search + l.hash
-  ).replace(/%20/g,'+').replace(/%26/g,'~and~'));
+  sessionStorage.setItem('qrx_path', location.pathname);
+  location.replace('${base}' + location.hash);
 <\/script>
 </head><body></body></html>`
       writeFileSync(resolve(__dirname, 'dist/404.html'), notFoundHtml)
