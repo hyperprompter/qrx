@@ -71,7 +71,7 @@ You can optionally sync your in-browser IndexedDB to flat files on your hard dri
 ## Setup
 1. Rename `TEMPLATE.env` to `.env` in the project root and configure:
    - `QRX_SYNC_KEY=your_secret_here` (required for auth)
-   - `QRX_INCLUDE_NAMESPACES=main,prompts,tools,config,boot` (comma-separated; `main` is always included even if omitted)
+   - `QRX_PUBLIC_NAMESPACES=main,prompts,tools,config,boot` (comma-separated; `main` is always included even if omitted)
 2. Run `npm start` to boot the local Node server.
 3. Install the sync interceptor (`/public/links/prompts/boot/sync`).
 4. Navigate to `#config` in QRx and set `FOG_URL` (e.g. `http://localhost:3000`) and `SYNC_KEY`, OR set them directly via URL execution:
@@ -81,7 +81,7 @@ You can optionally sync your in-browser IndexedDB to flat files on your hard dri
 ## How Sync Works
 - **Reads**: All file reads route through `POST /read`. If online and the server returns `200`, the value overwrites local IndexedDB (server is source of truth). If the server returns `401/403/404` or the network fails, the request falls back to local IndexedDB.
 - **Writes**: All writes save to local IndexedDB first, then attempt to sync to the server. If the server denies the write (401/403) or is unreachable, the local copy persists. Sync is best-effort; offline work is never lost.
-- **Included namespaces**: Only namespaces listed in `QRX_INCLUDE_NAMESPACES` (plus `main`, which is always allowed) are accepted for sync. Requests to non-included namespaces are rejected with `403` (write) or `404` (read) to prevent enumeration. All included namespaces require a valid `Authorization: <SECRET>` header when `QRX_SYNC_KEY` is set. Namespace matching is case-insensitive.
+- **Included namespaces**: Only namespaces listed in `QRX_PUBLIC_NAMESPACES` (plus `main`, which is always allowed) are accepted for sync. Requests to non-included namespaces are rejected with `403` (write) or `404` (read) to prevent enumeration. All included namespaces require a valid `Authorization: <SECRET>` header when `QRX_SYNC_KEY` is set. Namespace matching is case-insensitive.
 - **Static access blocked**: Direct `GET /data/*` requests return `403` (except `/data/index.json` for typeahead). All content access must go through the API endpoints.
 
 ## Vite Bootloader Behavior

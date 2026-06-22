@@ -31,8 +31,8 @@ jobs:
       - name: Build for GitHub Pages
         env:
           BASE_URL: /qrx/
-          # Add any public namespaces here — mirrors your .env QRX_INCLUDE_NAMESPACES
-          QRX_INCLUDE_NAMESPACES: main
+          # Add any public namespaces here — mirrors your .env QRX_PUBLIC_NAMESPACES
+          QRX_PUBLIC_NAMESPACES: main
         run: npm run build:github
 
       - name: Deploy to gh-pages branch

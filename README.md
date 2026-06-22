@@ -65,20 +65,20 @@ The build produces a `dist/index.html` in three stages:
 
 ### Static Deploys (GitHub Pages, etc.)
 
-`npm run build:github` mirrors `server.js`'s namespace logic at build time instead of runtime — it reads `QRX_INCLUDE_NAMESPACES` and copies only the allowed namespaces from `data/` into `public/data/`, then generates a static `public/data/index.json`.
+`npm run build:github` mirrors `server.js`'s namespace logic at build time instead of runtime — it reads `QRX_PUBLIC_NAMESPACES` and copies only the allowed namespaces from `data/` into `public/data/`, then generates a static `public/data/index.json`.
 
-This means `QRX_INCLUDE_NAMESPACES` currently has to be set in **two places** and kept in sync manually:
+This means `QRX_PUBLIC_NAMESPACES` currently has to be set in **two places** and kept in sync manually:
 
 - **`.env`** — controls what your live `server.js` instance serves publicly
-- **`deploy.yml`** (`QRX_INCLUDE_NAMESPACES` under the `Build for GitHub Pages` step) — controls what gets baked into the static GitHub Pages build
+- **`deploy.yml`** (`QRX_PUBLIC_NAMESPACES` under the `Build for GitHub Pages` step) — controls what gets baked into the static GitHub Pages build
 
-If you add a namespace and only update `.env`, your server will serve it but your static GitHub Pages deploy won't — it'll silently fall back to whatever was last baked in. There's no automated sync between the two yet, so for now, **remember to update `deploy.yml` whenever you change `QRX_INCLUDE_NAMESPACES` in `.env`**, especially if you want the static deploy to match your server's namespace visibility.
+If you add a namespace and only update `.env`, your server will serve it but your static GitHub Pages deploy won't — it'll silently fall back to whatever was last baked in. There's no automated sync between the two yet, so for now, **remember to update `deploy.yml` whenever you change `QRX_PUBLIC_NAMESPACES` in `.env`**, especially if you want the static deploy to match your server's namespace visibility.
 
 #### Subdirectory Hosting (`BASE_URL`)
 
 GitHub Pages project sites are served from a subdirectory (e.g. `https://you.github.io/qrx/`), not root. `deploy.yml` already sets this via the `BASE_URL` env var on the `Build for GitHub Pages` step — it's used both for Vite's own asset paths and to set the kernel's `BASE` variable, so namespace resolution works the same under a subdirectory as it does at root. You shouldn't need to touch this unless your repo name (and therefore your Pages path) changes — if so, update `BASE_URL` in `deploy.yml` to match.
 
-`.env` is never read during the GitHub Actions build (it's not committed to the repo), so this kind of build-time config always belongs in `deploy.yml`'s `env:` block, not `.env` — same reasoning as the `QRX_INCLUDE_NAMESPACES` duplication above.
+`.env` is never read during the GitHub Actions build (it's not committed to the repo), so this kind of build-time config always belongs in `deploy.yml`'s `env:` block, not `.env` — same reasoning as the `QRX_PUBLIC_NAMESPACES` duplication above.
 
 #### Why GitHub Pages Needs a `404.html`
 
@@ -120,7 +120,7 @@ QRX_SYNC_KEY=your-secret-here
 
 # Comma-separated list of namespaces publicly readable via /read
 # 'main' and 'cache' are always included regardless of this setting
-QRX_INCLUDE_NAMESPACES=main,wiki,cache
+QRX_PUBLIC_NAMESPACES=main,wiki,cache
 
 # Port the server listens on
 QRX_PORT=3000
@@ -151,7 +151,7 @@ All data is organized into namespaces — each one maps to a directory under `da
 2. The hostname: if `data/yourhostname/` exists, `window.NS` is injected into the served HTML and the kernel uses it as the active namespace
 3. Fallback: `main`
 
-Namespaces that aren't in `QRX_INCLUDE_NAMESPACES` (plus the always-included `main` and `cache`) are private — `/read` will return 404 for them unless the request carries a valid `QRX_SYNC_KEY`. This lets you host multiple users or contexts from one server with controlled visibility.
+Namespaces that aren't in `QRX_PUBLIC_NAMESPACES` (plus the always-included `main` and `cache`) are private — `/read` will return 404 for them unless the request carries a valid `QRX_SYNC_KEY`. This lets you host multiple users or contexts from one server with controlled visibility.
 
 The `main` namespace acts as a system-level fallback: if a key isn't found in the active namespace, `/read` tries `data/main/` before giving up.
 

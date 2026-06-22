@@ -3,7 +3,7 @@
  *
  * Pre-build step for GitHub Pages static deployment.
  * Mirrors what server.js does at runtime:
- *   - Reads QRX_INCLUDE_NAMESPACES (plus always-included 'main' and 'cache')
+ *   - Reads QRX_PUBLIC_NAMESPACES (plus always-included 'main' and 'cache')
  *   - Copies each allowed namespace from data/ into public/data/
  *   - Generates public/data/index.json (the flat key manifest the bootloader fetches)
  *
@@ -25,7 +25,7 @@ const INDEX_PATH = join(PUBLIC_DATA_DIR, 'index.json')
 const IGNORE_LIST = ['.DS_Store', '.git', 'node_modules', '.gitlab-ci.yml']
 
 // Mirror server.js namespace resolution logic exactly
-const includeRaw = process.env.QRX_INCLUDE_NAMESPACES || 'main'
+const includeRaw = process.env.QRX_PUBLIC_NAMESPACES || 'main'
 const includeParsed = includeRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
 const INCLUDE_SET = new Set([...includeParsed, 'main', 'cache'])
 

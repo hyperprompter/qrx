@@ -20,12 +20,12 @@ const clients = new Set()
 
 /**
  * Namespace allowlist — controls which namespaces are publicly readable via /read.
- * Configured via QRX_INCLUDE_NAMESPACES env var (comma-separated).
+ * Configured via QRX_PUBLIC_NAMESPACES env var (comma-separated).
  * 'main' and 'cache' are always included:
  *   - 'main' is the default kernel namespace
  *   - 'cache' holds previously fetched public URL content, already public by definition
  */
-const includeRaw = process.env.QRX_INCLUDE_NAMESPACES || 'main'
+const includeRaw = process.env.QRX_PUBLIC_NAMESPACES || 'main'
 const includeParsed = includeRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
 const INCLUDE_SET = new Set([...includeParsed, 'main', 'cache'])
 const isNamespaceAllowed = (ns) => ns && INCLUDE_SET.has(ns.toLowerCase())
