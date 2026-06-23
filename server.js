@@ -12,6 +12,7 @@ const __dirname = dirname(__filename)
 const PORT = process.env.QRX_PORT || 3000
 const DATA_DIR = resolve(join(process.cwd(), 'data'))
 const INDEX_PATH = resolve(join(process.cwd(), 'public', 'data', 'index.json'))
+const PRIVATE_INDEX_PATH = resolve(join(process.cwd(), 'public', 'data', 'index.private.json'))
 const DIST_DIR = resolve(join(process.cwd(), 'dist'))
 const SECRET = process.env.QRX_SYNC_KEY
 
@@ -29,6 +30,11 @@ const includeRaw = process.env.QRX_PUBLIC_NAMESPACES || 'main'
 const includeParsed = includeRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
 const INCLUDE_SET = new Set([...includeParsed, 'main', 'cache'])
 const isNamespaceAllowed = (ns) => ns && INCLUDE_SET.has(ns.toLowerCase())
+
+const privateRaw = process.env.QRX_PRIVATE_NAMESPACES || ''
+const privateParsed = privateRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+const PRIVATE_SET = new Set(privateParsed)
+const isNamespacePrivate = (ns) => ns && PRIVATE_SET.has(ns.toLowerCase())
 
 // Files and directories to skip when walking data/ for index generation
 const IGNORE_LIST = ['.DS_Store', '.git', 'node_modules', '.gitlab-ci.yml']
@@ -87,6 +93,43 @@ async function updateDataIndex() {
 }
 
 /**
+ * Recursively walks data/ and writes public/data/index.private.json — same
+ * structure as index.json but restricted to PRIVATE_SET namespaces.
+ * This file is served only to requests carrying a valid Authorization header.
+ */
+async function updatePrivateIndex() {
+  if (PRIVATE_SET.size === 0) return
+  try {
+    const results = []
+    const namespaces = await readdir(DATA_DIR, { withFileTypes: true })
+
+    for (const ns of namespaces) {
+      if (!ns.isDirectory() || IGNORE_LIST.includes(ns.name)) continue
+      if (!isNamespacePrivate(ns.name)) continue
+
+      async function walk(currentDir, currentPath) {
+        const entries = await readdir(currentDir, { withFileTypes: true })
+        for (const e of entries) {
+          if (IGNORE_LIST.includes(e.name)) continue
+          const itemPath = currentPath ? `${currentPath}/${e.name}` : e.name
+          if (e.isDirectory()) {
+            await walk(join(currentDir, e.name), itemPath)
+          } else {
+            results.push(`${ns.name}/${fromFsKey(itemPath)}`)
+          }
+        }
+      }
+
+      await walk(join(DATA_DIR, ns.name), '')
+    }
+
+    await writeFile(PRIVATE_INDEX_PATH, JSON.stringify(results))
+  } catch (err) {
+    console.error('[Indexer] Failed to generate private index:', err)
+  }
+}
+
+/**
  * Watch data/ for changes and rebuild index.json after a 30s debounce.
  * The debounce avoids thrashing on rapid successive writes.
  * Falls back gracefully if recursive watch is unsupported (some Linux kernels).
@@ -103,6 +146,7 @@ function watchData() {
       clearTimeout(indexTimeout)
       indexTimeout = setTimeout(async () => {
         await updateDataIndex()
+        await updatePrivateIndex()
         console.log('[Indexer] index.json updated.')
       }, 30000)
     })
@@ -115,6 +159,7 @@ function watchData() {
 mkdir(DATA_DIR, { recursive: true }).catch(() => {})
 mkdir(join(process.cwd(), 'public', 'data'), { recursive: true }).catch(() => {})
 updateDataIndex()
+updatePrivateIndex()
 watchData()
 
 createServer(async (req, res) => {
@@ -168,6 +213,9 @@ createServer(async (req, res) => {
 
     if (safePath === '/data/index.json') {
       filePath = resolve(INDEX_PATH)
+    } else if (safePath === '/data/index.private.json') {
+      if (!SECRET || req.headers.authorization !== SECRET) return res.writeHead(401).end('Unauthorized')
+      filePath = resolve(PRIVATE_INDEX_PATH)
     } else if (safePath.startsWith('/data/')) {
       return res.writeHead(403).end('Direct data access blocked. Use /read endpoint.')
     } else {
