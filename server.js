@@ -12,7 +12,7 @@ const __dirname = dirname(__filename)
 const PORT = process.env.QRX_PORT || 3000
 const DATA_DIR = resolve(join(process.cwd(), 'data'))
 const INDEX_PATH = resolve(join(process.cwd(), 'public', 'data', 'index.json'))
-const PRIVATE_INDEX_PATH = resolve(join(process.cwd(), 'public', 'data', 'index.private.json'))
+const PRIVATE_INDEX_PATH = resolve(join(process.cwd(), 'data', 'index.private.json'))
 const DIST_DIR = resolve(join(process.cwd(), 'dist'))
 const SECRET = process.env.QRX_SYNC_KEY
 

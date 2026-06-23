@@ -1206,24 +1206,33 @@ window.addEventListener('keydown', function(event) {
 });
 </script><script>
 (async function() {
+  var list = [];
   try {
-    var response = await fetch('/data/index.json');
-    var data = await response.json();
-    var datalist = document.createElement('datalist');
-    datalist.id = 'sys-file-list';
-    for (var i = 0; i < data.length; i++) {
-      var item = data[i];
-      var modifiedItem = item.replace('/', '\x23');
-      var option = document.createElement('option');
-      option.value = modifiedItem;
-      datalist.appendChild(option);
-    }
-    document.body.appendChild(datalist);
-    document.addEventListener('focusin', function(event) {
-      if (event.target && event.target.tagName === 'INPUT') {
-        event.target.setAttribute('list', 'sys-file-list');
+    var res = await fetch('/data/index.json');
+    if (res.ok) list = await res.json();
+  } catch (e) {}
+  try {
+    var key = localStorage.getItem('SYNC_KEY');
+    if (key) {
+      var privRes = await fetch('/data/index.private.json', { headers: { 'Authorization': key } });
+      if (privRes.ok) {
+        var privList = await privRes.json();
+        list = [...new Set([...list, ...privList])];
       }
-    });
-  } catch (err) {}
+    }
+  } catch (e) {}
+  var datalist = document.createElement('datalist');
+  datalist.id = 'sys-file-list';
+  for (var i = 0; i < list.length; i++) {
+    var option = document.createElement('option');
+    option.value = list[i].replace('/', '#');
+    datalist.appendChild(option);
+  }
+  document.body.appendChild(datalist);
+  document.addEventListener('focusin', function(event) {
+    if (event.target && event.target.tagName === 'INPUT') {
+      event.target.setAttribute('list', 'sys-file-list');
+    }
+  });
 })();
 </script><script>window.dispatchEvent(new CustomEvent('main:ready'))</script>

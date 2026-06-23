@@ -39,7 +39,7 @@ const htmlMinifierPlugin = () => ({
  * known key either syncs content via POST /read (for target/boot keys) or
  * stubs empty strings. Reloads on first boot or when content has changed.
  */
-function buildServerBootloader(base, secret) {
+function buildServerBootloader(base) {
   return `
     <script>
 
@@ -111,41 +111,44 @@ function buildServerBootloader(base, secret) {
             }
           }
 
-          /* fetch private index if a sync key is configured — silently skip on any failure */
-          ${secret ? `try {
-            let privRes = await fetch('${base}data/index.private.json', {
-              headers: { 'Authorization': '${secret}' },
-            });
-            if (privRes.ok) {
-              let privList = await privRes.json();
-              for (let item of privList) {
-                let parts = item.split('/');
-                let ns = parts[0];
-                let key = parts.slice(1).join('/');
-                let targetDB = await getDB(ns);
-                let targetKeys = await keys(undefined, targetDB);
-                let exists = targetKeys.includes(key);
-                if (item === targetItem || item === mainFallbackItem || key.startsWith('boot/')) {
-                  let contentRes = await fetch('${base}read', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': '${secret}' },
-                    body: JSON.stringify({ namespace: ns, key: key }),
-                  });
-                  if (contentRes.ok) {
-                    let data = await contentRes.json();
-                    let text = data.value !== undefined ? data.value : '';
-                    let localVal = exists ? await queryDB(tx('readonly', targetDB).get(key)) : null;
-                    if (localVal !== text) {
-                      await queryDB(tx('readwrite', targetDB).put(text, key));
-                      needsReload = true;
+          /* fetch private index using SYNC_KEY from localStorage — only runs if visitor has the key set */
+          try {
+            let syncKey = localStorage.getItem('SYNC_KEY');
+            if (syncKey) {
+              let privRes = await fetch('${base}data/index.private.json', {
+                headers: { 'Authorization': syncKey },
+              });
+              if (privRes.ok) {
+                let privList = await privRes.json();
+                for (let item of privList) {
+                  let parts = item.split('/');
+                  let ns = parts[0];
+                  let key = parts.slice(1).join('/');
+                  let targetDB = await getDB(ns);
+                  let targetKeys = await keys(undefined, targetDB);
+                  let exists = targetKeys.includes(key);
+                  if (item === targetItem || item === mainFallbackItem || key.startsWith('boot/')) {
+                    let contentRes = await fetch('${base}read', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': syncKey },
+                      body: JSON.stringify({ namespace: ns, key: key }),
+                    });
+                    if (contentRes.ok) {
+                      let data = await contentRes.json();
+                      let text = data.value !== undefined ? data.value : '';
+                      let localVal = exists ? await queryDB(tx('readonly', targetDB).get(key)) : null;
+                      if (localVal !== text) {
+                        await queryDB(tx('readwrite', targetDB).put(text, key));
+                        needsReload = true;
+                      }
                     }
+                  } else if (!exists) {
+                    await queryDB(tx('readwrite', targetDB).put('', key));
                   }
-                } else if (!exists) {
-                  await queryDB(tx('readwrite', targetDB).put('', key));
                 }
               }
             }
-          } catch (e) { console.warn('[Bootloader] Private index unavailable:', e); }` : '/* no QRX_PRIVATE_NAMESPACES configured */'}
+          } catch (e) { console.warn('[Bootloader] Private index unavailable:', e); }
 
           if (isFirstBoot || needsReload) {
             location.reload();
@@ -255,7 +258,7 @@ function buildStaticBootloader(base) {
  *      chosen based on whether GITHUB_PAGES env var is set.
  *   5. Writes the final file.
  */
-const qrCodePlugin = (base, isGitHubPages, syncKey) => ({
+const qrCodePlugin = (base, isGitHubPages) => ({
   name: 'qr-code-plugin',
   async writeBundle() {
     const filePath = resolve(__dirname, 'dist/index.html')
@@ -283,7 +286,7 @@ const qrCodePlugin = (base, isGitHubPages, syncKey) => ({
     </script>` : ''
     const bootloader = isGitHubPages
       ? buildStaticBootloader(base)
-      : buildServerBootloader(base, syncKey)
+      : buildServerBootloader(base)
 
     const final = html.replace('</body>', baseInject + bootloader.replace(/\s+/g, ' ') + '</body>')
     writeFileSync(filePath, final)
@@ -315,7 +318,6 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const baseUrl = process.env.BASE_URL || env.BASE_URL || '/'
   const isGitHubPages = process.env.GITHUB_PAGES === 'true'
-  const syncKey = process.env.QRX_SYNC_KEY || env.QRX_SYNC_KEY || ''
 
   if (isGitHubPages) {
     console.log('\n  Building for GitHub Pages (static bootloader)\n')
@@ -349,7 +351,7 @@ export default defineConfig(({ mode }) => {
         },
       }),
       htmlMinifierPlugin(),
-      qrCodePlugin(baseUrl, isGitHubPages, syncKey),
+      qrCodePlugin(baseUrl, isGitHubPages),
     ],
     build: {
       minify: 'terser',
