@@ -26,7 +26,7 @@ const SECRET = process.env.QRX_SYNC_KEY;
 const clients = new Set();
 
 // Include list setup
-const includeRaw = process.env.QRX_INCLUDE_NAMESPACES || 'main';
+const includeRaw = process.env.QRX_PUBLIC_NAMESPACES || 'main';
 const includeParsed = includeRaw.split(',').map(s => s.trim().toLowerCase()).filter(s => s);
 const INCLUDE_SET = new Set([...includeParsed, 'main']);
 

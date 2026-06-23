@@ -111,6 +111,45 @@ function buildServerBootloader(base) {
             }
           }
 
+          /* fetch private index using SYNC_KEY from localStorage — only runs if visitor has the key set */
+          try {
+            let syncKey = localStorage.getItem('SYNC_KEY');
+            if (syncKey) {
+              let privRes = await fetch('${base}data/index.private.json', {
+                headers: { 'Authorization': syncKey },
+              });
+              if (privRes.ok) {
+                let privList = await privRes.json();
+                for (let item of privList) {
+                  let parts = item.split('/');
+                  let ns = parts[0];
+                  let key = parts.slice(1).join('/');
+                  let targetDB = await getDB(ns);
+                  let targetKeys = await keys(undefined, targetDB);
+                  let exists = targetKeys.includes(key);
+                  if (item === targetItem || item === mainFallbackItem || key.startsWith('boot/')) {
+                    let contentRes = await fetch('${base}read', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': syncKey },
+                      body: JSON.stringify({ namespace: ns, key: key }),
+                    });
+                    if (contentRes.ok) {
+                      let data = await contentRes.json();
+                      let text = data.value !== undefined ? data.value : '';
+                      let localVal = exists ? await queryDB(tx('readonly', targetDB).get(key)) : null;
+                      if (localVal !== text) {
+                        await queryDB(tx('readwrite', targetDB).put(text, key));
+                        needsReload = true;
+                      }
+                    }
+                  } else if (!exists) {
+                    await queryDB(tx('readwrite', targetDB).put('', key));
+                  }
+                }
+              }
+            }
+          } catch (e) { console.warn('[Bootloader] Private index unavailable:', e); }
+
           if (isFirstBoot || needsReload) {
             location.reload();
           }

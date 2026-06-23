@@ -29,17 +29,17 @@
   - when file icon is single clicked or tapped, show a window for it
   - show a full size iframe in the windows content area
   - set the addressbar to full/file/path
-  - set the iframe path to just `${window.DB}#${full/file/path}`
-  - listen for #hash changes inside the iframe and update the addressbar on change (be mindful of loops)
+  - set the iframe path to just `${window.DB}%23${full/file/path}`
+  - listen for %23hash changes inside the iframe and update the addressbar on change (be mindful of loops)
   - keep addressbar and iframe synced
   - when user presses enter in the addressbar or presses Go, the iframe should update to the new URL
   - do this for file icons in folders too
   - don't handle other window interaction yet
-  - URLs must always be in the form db#file
+  - URLs must always be in the form db%23file
     - if no db name is present assume ${window.DB}
-    - if no # hash symbol is present, assume the whole thing is a hash
-  - example: if DB='main' then #chat should map to main#chat
-  - example: if DB='apps/paint' and file is 'art/selfie' then it should map to apps/paint#art/selfie
+    - if no %23 hash symbol is present, assume the whole thing is a hash
+  - example: if DB='main' then %23chat should map to main%23chat
+  - example: if DB='apps/paint' and file is 'art/selfie' then it should map to apps/paint%23art/selfie
 &w&a=1&p=TASK: output SCRIPT tag for handling windows
   - make windows draggable by dragging the titlebar
   - make windows resizable
@@ -91,5 +91,16 @@
   - inside the timeout, search the DOM again for the newly spawned input field whose value ends with 'run'
   - if found, call .focus() on it
   - use var for all variables
+&w&a=1&p=TASK: output a SCRIPT tag that builds a global typeahead datalist from the file index
+  - wrap everything in an async IIFE using var for all variables
+  - fetch '/data/index.json' and parse as JSON — if it fails use an empty array
+  - attempt to read localStorage.getItem('SYNC_KEY') into a var
+  - if SYNC_KEY is truthy, also fetch '/data/index.private.json' with header Authorization: SYNC_KEY and parse as JSON — if this fetch fails or returns non-ok, use an empty array
+  - merge both arrays into one deduplicated list using a Set
+  - for each item in the merged list, replace the first '/' with '%23' (namespace/key → namespace%23key)
+  - create a <datalist> element with id 'sys-file-list'
+  - for each modified item create an <option> with that value and append it to the datalist
+  - append the datalist to document.body
+  - add a focusin listener on document: if event.target is an INPUT, set its list attribute to 'sys-file-list'
 &w&a=1&e=<script>window.dispatchEvent(new CustomEvent('main:ready'))</script>
 &w
