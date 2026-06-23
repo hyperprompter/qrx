@@ -1,5 +1,5 @@
 /**
- * scripts/build-github.js
+ * servers/github/build.js
  *
  * Pre-build step for GitHub Pages static deployment.
  * Mirrors what server.js does at runtime:
@@ -8,7 +8,7 @@
  *   - Generates public/data/index.json (the flat key manifest the bootloader fetches)
  *
  * Run via: npm run build:github
- * (which is: node scripts/build-github.js && vite build)
+ * (which is: node servers/github/build.js && vite build)
  */
 
 import { readdir, copyFile, mkdir, writeFile, readFile } from 'fs/promises'
@@ -17,7 +17,7 @@ import { existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const ROOT = resolve(__dirname, '..')
+const ROOT = resolve(__dirname, '../..')
 const DATA_DIR = join(ROOT, 'data')
 const PUBLIC_DATA_DIR = join(ROOT, 'public', 'data')
 const INDEX_PATH = join(PUBLIC_DATA_DIR, 'index.json')

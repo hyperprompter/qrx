@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node --env-file=.env server.js",
     "build": "vite build",
-    "build:github": "GITHUB_PAGES=true node scripts/build-github.js && GITHUB_PAGES=true vite build"
+    "build:github": "GITHUB_PAGES=true node servers/github/build.js && GITHUB_PAGES=true vite build",
+    "build:reddit": "node servers/reddit/build.js"
   },
   "dependencies": {
     "html-minifier-terser": "^7.2.0",
