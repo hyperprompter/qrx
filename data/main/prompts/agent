@@ -1,0 +1,88 @@
+#agent?e&w&p=TASK: output HTML wireframe for an autonomous agent
+- components:
+- header (inputs for model-name, host, apikey type=password)
+- split-view container (use flex row)
+- left-panel (for agent internal monologue and tools; no placeholders)
+- right-panel (for the final chat with user; no placeholders)
+- footer (resizable textarea id="user-input", submit button id="submit-btn", stop button id="stop-btn")
+- css: use flex so the split-view fits the space between header and footer
+- css: left-panel and right-panel should be 50 percent width and scrollable
+- no javascript
+- dont include html/head/body tags just the wireframe
+&w&a=1&p=TASK: output a SCRIPT tag that populates the header details
+- read the value of localStorage.getItem('m') and store it in the model-name DOM input
+- do same for localStorage.getItem('h') into host input
+- do same for localStorage.getItem('k') into apikey input
+- create global array: window.chatHistory =[]
+- create global object: window.agentScratchpad = {}
+- create global string: window.agentPlan = "Pending initialization."
+- create global boolean: window.stopAgent = false
+- use var for all variable declarations
+&w&a=1&p=TASK: output a SCRIPT tag creating UI helper functions
+- create function printLeft(text, isObservation)
+- creates a div, sets whiteSpace to 'pre-wrap'. if isObservation is true, set color to 'aa5500'. append text, append to left-panel, scroll to bottom.
+- create function printRight(text)
+- creates a div, sets whiteSpace to 'pre-wrap', fontWeight to 'bold'. append text, append to right-panel, scroll to bottom.
+- use var for all variable declarations
+&w&a=1&p=TASK: output a SCRIPT tag creating dynamic tool loader and executor
+- DO NOT hardcode any base tools. The agent must be completely agnostic.
+- create global async function window.getActiveToolsString()
+- inside function: var lines =[];
+- var matchedKeys = await keys(IDBKeyRange.bound('tool', 'tool\uffff'));
+- loop through matchedKeys: var c = await read(matchedKeys[i]); var desc = "No description"; if (c %26%26 c.includes("/*")) { desc = c.split("*/")[0].split("/*")[1].trim(); } lines.push(matchedKeys[i] %2B ' - ' %2B desc);
+- return lines.length > 0 %3F lines.join('\n') : "No tools found.";
+- create global async function window.executeTool(toolName, toolInput)
+- inside a try/catch block:
+- var code = await read(toolName);
+- if (!code %26%26 toolName.indexOf('tools/') !== 0) { code = await read('tools/' %2B toolName); }
+- if (!code) throw new Error("Tool not found.");
+- evaluate the code EXACTLY using this syntax: return await new Function('INPUT', 'return (async () => {' %2B code %2B '})()')(toolInput);
+- catch error: call console.error("Tool Execution Failed:", err, "Code Evaluated:", code); return "Tool Execution Error: " %2B err.message;
+- use var for all variable declarations
+&w&a=1&p=TASK: output a SCRIPT tag creating an LLM fetch helper
+- create global async function window.fetchAI(systemPrompt)
+- read model-name, host, apikey from DOM inputs.
+- save those 3 values to localStorage as 'm', 'h', and 'k'.
+- create messages array: first item is { role: 'system', content: systemPrompt }. concatenate window.chatHistory.
+- execute fetch to host URL with method POST, standard headers (Bearer apikey if exists), body: JSON.stringify({ model: document.getElementById('model-name').value, messages: messages, stream: false }).
+- return the parsed text content from the response choices.
+- use var for all variable declarations
+&w&a=1&p=TASK: output a SCRIPT tag creating regex parsers
+- create function window.parseAction(text)
+- match regex for: /<<ACTION:\s*([^>]%2B)>>\n([\s\S]*%3F)(%3F=<<|$)/
+- if matched, return { name: match[1].trim(), input: match[2].trim() }. else return null.
+- create function window.parseAnswer(text)
+- match regex for: /<<ANSWER>>\n([\s\S]*%3F)(%3F=<<|$)/
+- if matched, return the extracted string. else return null.
+- use var for all variable declarations
+&w&a=1&c=src&p=TASK: output a SCRIPT tag creating the core agent reasoning loop
+- create global async function window.runAgent(userMessage)
+- reset: window.agentScratchpad = {}; window.agentPlan = "Task started.";
+- call printRight(userMessage). push { role: 'user', content: userMessage } to window.chatHistory.
+- var errorCount = 0; start an infinite while(true) loop.
+- inside loop: console.log("--- NEW AGENT LOOP START ---");
+- inside loop: var toolsString = await window.getActiveToolsString();
+- inside loop: var inventory = Object.keys(window.agentScratchpad);
+- inside loop: var invString = ""; if (inventory.length > 0) { for(var i=0; i<inventory.length; i%2B%2B) { invString %2B= "=== MEMORY POINTER: " %2B inventory[i] %2B " ===\n" %2B window.agentScratchpad[inventory[i]] %2B "\n\n"; } } else { invString = "[Empty]"; }
+- inside loop: build var systemPrompt = "You are an autonomous AI operating in a pointer-based memory architecture. Do not hallucinate file contents.\n\nCRITICAL RULE: DO NOT USE XML. NEVER output <tool_call> or <function> tags. You must use the EXACT syntax <<ACTION: tool_name>> and <<ANSWER>>.\n\nOUTPUT FORMAT:\nTo use a tool: <<ACTION: tool_name>>\ninput_data\n\nTo finish: <<ANSWER>>\nfinal_message\n\nCURRENT PLAN:\n" %2B window.agentPlan %2B "\n\nWORKING MEMORY CONTENTS:\n" %2B invString %2B "\n\nAVAILABLE TOOLS:\n" %2B toolsString;
+- inside loop: console.log("1. System Prompt length (bytes):", systemPrompt.length);
+- inside loop: if window.stopAgent is true, append "\nUSER OVERRIDE: Stop executing tools. Output <<ANSWER>>." to systemPrompt, and set window.stopAgent = false.
+- inside loop: console.log("2. Fetching AI...");
+- inside loop: var aiResponse = await window.fetchAI(systemPrompt);
+- inside loop: console.log("3. AI Raw Response:\n", aiResponse);
+- inside loop: call printLeft(aiResponse, false). push { role: 'assistant', content: aiResponse } to window.chatHistory.
+- inside loop: var action = window.parseAction(aiResponse);
+- inside loop: if action exists: console.log("4. Executing Action:", action); var result = await window.executeTool(action.name, action.input); console.log("5. Tool Result:", result); call printLeft("OBSERVATION:\n" %2B result, true); push { role: 'user', content: "OBSERVATION:\n" %2B result } to window.chatHistory; continue loop;
+- inside loop: var answer = window.parseAnswer(aiResponse);
+- inside loop: if answer exists: console.log("4. Loop Finished. Answer:", answer); call printRight(answer); break loop;
+- inside loop (fallback): console.warn("4. Syntax Fallback Triggered. AI failed to use <<ACTION>> or <<ANSWER>>."); push { role: 'user', content: 'SYSTEM WARNING: You MUST output <<ACTION: name>> or <<ANSWER>>. NO XML. DO NOT USE <tool_call> tags.' } to window.chatHistory; continue loop;
+- wrap loop in try/catch. on catch: errorCount%2B%2B, console.error("Agent Loop Error:", e), printLeft("Error: " %2B e.message, true), break loop if errorCount >= 7.
+- use var for all variable declarations
+&w&a=1&p=TASK: output a SCRIPT tag binding UI events
+- get DOM elements for submit-btn, stop-btn, user-input textarea.
+- create function handleSubmit(e) { if(e %26%26 e.preventDefault) e.preventDefault(); if(userInput.value.trim() !== '') { window.runAgent(userInput.value); userInput.value = ''; } }
+- bind click event to submit-btn.
+- bind keydown event to textarea (if ctrlKey and key is 'Enter', call handleSubmit).
+- bind click event to stop-btn to set window.stopAgent = true.
+- use var for all variable declarations
+&w

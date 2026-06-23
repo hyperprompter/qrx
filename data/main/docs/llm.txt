@@ -1,0 +1,15 @@
+# Documentation
+[[docs/index.html]]
+[[docs/vite.config.js]]
+[[docs/server.js]]
+[[docs/README]]
+
+# Generative Hyperlinks
+[[prompts/bundle]]
+[[prompts/chat]]
+[[prompts/data]]
+[[prompts/edit]]
+[[prompts/main]]
+[[prompts/system]]
+[[prompts/apps/paint]]
+[[prompts/boot/errors]]

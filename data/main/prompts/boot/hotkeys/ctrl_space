@@ -1,0 +1,16 @@
+#boot/hotkeys/ctrl_space?e=if(window._bootCtrlSpace)return;window._bootCtrlSpace=true;window.addEventListener('keydown', function(e) {
+  if (e.ctrlKey %26%26 (e.code === 'Space' || e.key === ' ')) {
+    if (window !== window.top) {
+      e.preventDefault();
+      window.top.focus();
+      var clone = new KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        ctrlKey: true,
+        code: 'Space',
+        key: ' '
+      });
+      window.top.document.dispatchEvent(clone);
+    }
+  }
+});&w

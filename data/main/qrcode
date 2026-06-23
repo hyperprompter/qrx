@@ -1,0 +1,94 @@
+var qrOverlay = document.createElement("div");
+qrOverlay.id = "qr-overlay";
+qrOverlay.style.position = "fixed";
+qrOverlay.style.top = "20px";
+qrOverlay.style.right = "20px";
+qrOverlay.style.backgroundColor = "#ffffff";
+qrOverlay.style.border = "2px solid #000000";
+qrOverlay.style.boxShadow = "0px 6px 16px rgba(0, 0, 0, 0.3)";
+qrOverlay.style.maxHeight = "80vh";
+qrOverlay.style.overflowY = "auto";
+qrOverlay.style.zIndex = "2147483647";
+qrOverlay.style.padding = "15px";
+qrOverlay.style.boxSizing = "border-box";
+qrOverlay.style.minWidth = "250px";
+document.body.appendChild(qrOverlay);(async function() {
+    var lib = await read('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js', 'cache');
+    var script = document.createElement('script');
+    script.textContent = lib;
+    document.head.appendChild(script);
+    
+    await new Promise(function(resolve) {
+        setTimeout(resolve, 50);
+    });
+    
+    var txt = await read(filename) || '';
+    
+    var chunks = [];
+    for (var i = 0; i < txt.length; i += 2953) {
+        chunks.push(txt.substring(i, i + 2953));
+    }
+    if (chunks.length === 0) {
+        chunks.push('');
+    }
+    
+    var overlay = document.querySelector('#qr-overlay');
+    
+    chunks.forEach(function(chunk, index) {
+        var wrapper = document.createElement('div');
+        wrapper.style.marginBottom = '20px';
+        wrapper.style.borderBottom = '1px solid #ccc';
+        wrapper.style.paddingBottom = '10px';
+        
+        var label = document.createElement('div');
+        label.textContent = 'Part ' + (index + 1) + ' of ' + chunks.length + ' (' + chunk.length + ' bytes)';
+        label.style.fontFamily = 'monospace';
+        label.style.marginBottom = '8px';
+        
+        var innerDiv = document.createElement('div');
+        innerDiv.style.padding = '10px';
+        innerDiv.style.backgroundColor = '#ffffff';
+        innerDiv.style.display = 'inline-block';
+        
+        wrapper.appendChild(label);
+        wrapper.appendChild(innerDiv);
+        overlay.appendChild(wrapper);
+        
+        new QRCode(innerDiv, {
+            text: chunk,
+            correctLevel: QRCode.CorrectLevel.L,
+            width: 256,
+            height: 256
+        });
+    });
+})();var overlayElem = document.getElementById("qr-overlay");
+if (overlayElem) {
+    var isDragging = false;
+    var offsetX = 0;
+    var offsetY = 0;
+    
+    overlayElem.style.cursor = "move";
+    
+    overlayElem.addEventListener("mousedown", function(e) {
+        isDragging = true;
+        var rect = overlayElem.getBoundingClientRect();
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+        
+        overlayElem.style.right = "auto";
+        overlayElem.style.margin = "0";
+        overlayElem.style.left = rect.left + "px";
+        overlayElem.style.top = rect.top + "px";
+    });
+    
+    document.addEventListener("mousemove", function(e) {
+        if (isDragging) {
+            overlayElem.style.left = (e.clientX - offsetX) + "px";
+            overlayElem.style.top = (e.clientY - offsetY) + "px";
+        }
+    });
+    
+    document.addEventListener("mouseup", function() {
+        isDragging = false;
+    });
+}

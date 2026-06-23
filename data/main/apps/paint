@@ -1,0 +1,423 @@
+<style>
+body.flexbox {
+    display: flex;
+    flex-wrap: wrap;
+    height: 100vh;
+    margin: 0;
+    background-color: #c0c0c0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    overflow: hidden;
+}
+
+body.flexbox > aside:first-of-type {
+    width: 60px;
+    display: flex;
+    flex-direction: column;
+    padding: 5px;
+    box-sizing: border-box;
+    border-right: 2px solid #808080;
+    background-color: #c0c0c0;
+}
+
+body.flexbox > main {
+    flex: 1;
+    display: flex;
+    overflow: auto;
+    padding: 10px;
+    background-color: #808080;
+    justify-content: center;
+    align-items: center;
+}
+
+canvas {
+    background-color: #ffffff;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+    min-width: 600px;
+    min-height: 400px;
+}
+
+body.flexbox > aside:last-of-type {
+    width: 150px;
+    display: flex;
+    flex-direction: column;
+    padding: 5px;
+    box-sizing: border-box;
+    border-left: 2px solid #ffffff;
+    background-color: #c0c0c0;
+    gap: 5px;
+}
+
+#layers {
+    flex: 1;
+    background-color: #ffffff;
+    border: 2px inset #ffffff;
+    min-height: 100px;
+    overflow-y: auto;
+}
+
+footer {
+    width: 100%;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    padding: 5px;
+    box-sizing: border-box;
+    border-top: 2px solid #ffffff;
+    background-color: #c0c0c0;
+}
+
+button {
+    background-color: #c0c0c0;
+    border: 2px outset #ffffff;
+    padding: 5px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+button:active {
+    border-style: inset;
+}
+
+#template-tool, 
+#template-layer, 
+#template-color {
+    display: none !important;
+}
+</style>
+<body class="flexbox">
+    <aside>
+        <button id="template-tool" class="tool" data-mode="brush|eraser|etc"></button>
+    </aside>
+    <main>
+        <canvas></canvas>
+    </main>
+    <aside>
+        <div id="template-layer"></div>
+        <div id="layers"></div>
+        <button id="layer-up">Up</button>
+        <button id="layer-down">Down</button>
+        <button id="layer-new">New</button>
+        <button id="layer-delete">Delete</button>
+    </aside>
+    <footer>
+        <button id="template-color" data-color="#hex"></button>
+    </footer>
+</body><script>
+var color = '#000000';
+
+document.addEventListener('DOMContentLoaded', function() {
+    const defaultColors = [
+        '#000000', '#ffffff', '#808080', '#c0c0c0', 
+        '#800000', '#ff0000', '#808000', '#ffff00', 
+        '#008000', '#00ff00', '#008080', '#00ffff', 
+        '#000080', '#0000ff', '#800080', '#ff00ff'
+    ];
+    
+    const footer = document.querySelector('footer');
+    const templateColor = document.getElementById('template-color');
+    
+    defaultColors.forEach(function(hex) {
+        const colorBtn = templateColor.cloneNode(true);
+        colorBtn.removeAttribute('id');
+        colorBtn.setAttribute('data-color', hex);
+        colorBtn.style.backgroundColor = hex;
+        colorBtn.style.width = '30px';
+        colorBtn.style.height = '30px';
+        colorBtn.style.marginRight = '5px';
+        
+        colorBtn.addEventListener('click', function() {
+            color = this.getAttribute('data-color');
+        });
+        
+        footer.appendChild(colorBtn);
+    });
+    
+    const customPicker = document.createElement('input');
+    customPicker.type = 'color';
+    customPicker.value = '#000000';
+    customPicker.style.height = '30px';
+    customPicker.style.marginLeft = '10px';
+    customPicker.style.cursor = 'pointer';
+    
+    customPicker.addEventListener('input', function() {
+        color = this.value;
+    });
+    customPicker.addEventListener('change', function() {
+        color = this.value;
+    });
+    
+    footer.appendChild(customPicker);
+});
+</script><script>
+document.addEventListener('DOMContentLoaded', function() {
+    const layersContainer = document.getElementById('layers');
+    const templateLayer = document.getElementById('template-layer');
+    const btnUp = document.getElementById('layer-up');
+    const btnDown = document.getElementById('layer-down');
+    const btnNew = document.getElementById('layer-new');
+    const btnDelete = document.getElementById('layer-delete');
+
+    let layers = [];
+    let activeLayerIndex = -1;
+    let layerCount = 0;
+
+    function renderLayers() {
+        layersContainer.innerHTML = '';
+        for (let i = layers.length - 1; i >= 0; i--) {
+            layersContainer.appendChild(layers[i].element);
+        }
+    }
+
+    function setActiveLayer(index) {
+        if (index < 0 || index >= layers.length) return;
+        activeLayerIndex = index;
+        layers.forEach((layer, i) => {
+            if (i === activeLayerIndex) {
+                layer.element.style.backgroundColor = '#000080';
+                layer.element.style.color = '#ffffff';
+            } else {
+                layer.element.style.backgroundColor = 'transparent';
+                layer.element.style.color = '#000000';
+            }
+        });
+    }
+
+    function createLayer(insertAboveIndex = -1) {
+        layerCount++;
+        const layerEl = templateLayer.cloneNode(true);
+        layerEl.removeAttribute('id');
+        layerEl.style.display = 'flex';
+        layerEl.style.alignItems = 'center';
+        layerEl.style.padding = '5px';
+        layerEl.style.cursor = 'pointer';
+        layerEl.style.borderBottom = '1px solid #c0c0c0';
+
+        const preview = document.createElement('canvas');
+        preview.width = 40;
+        preview.height = 30;
+        preview.style.backgroundColor = '#ffffff';
+        preview.style.border = '1px inset #808080';
+        preview.style.marginRight = '8px';
+
+        const name = document.createElement('span');
+        name.textContent = 'Layer ' + layerCount;
+        name.style.userSelect = 'none';
+        name.style.fontSize = '12px';
+
+        layerEl.appendChild(preview);
+        layerEl.appendChild(name);
+
+        const layerObj = {
+            element: layerEl,
+            previewCanvas: preview,
+            id: layerCount
+        };
+
+        layerEl.addEventListener('click', () => {
+            const idx = layers.indexOf(layerObj);
+            if (idx !== -1) setActiveLayer(idx);
+        });
+
+        if (insertAboveIndex === -1 || insertAboveIndex === layers.length - 1) {
+            layers.push(layerObj);
+            activeLayerIndex = layers.length - 1;
+        } else {
+            layers.splice(insertAboveIndex + 1, 0, layerObj);
+            activeLayerIndex = insertAboveIndex + 1;
+        }
+
+        renderLayers();
+        setActiveLayer(activeLayerIndex);
+    }
+
+    btnNew.addEventListener('click', () => {
+        createLayer(activeLayerIndex);
+    });
+
+    btnDelete.addEventListener('click', () => {
+        if (layers.length <= 1) return;
+        if (activeLayerIndex === -1) return;
+        
+        layers.splice(activeLayerIndex, 1);
+        if (activeLayerIndex >= layers.length) {
+            activeLayerIndex = layers.length - 1;
+        }
+        renderLayers();
+        setActiveLayer(activeLayerIndex);
+    });
+
+    btnUp.addEventListener('click', () => {
+        if (activeLayerIndex >= layers.length - 1 || activeLayerIndex === -1) return;
+        const temp = layers[activeLayerIndex];
+        layers[activeLayerIndex] = layers[activeLayerIndex + 1];
+        layers[activeLayerIndex + 1] = temp;
+        activeLayerIndex++;
+        renderLayers();
+        setActiveLayer(activeLayerIndex);
+    });
+
+    btnDown.addEventListener('click', () => {
+        if (activeLayerIndex <= 0 || activeLayerIndex === -1) return;
+        const temp = layers[activeLayerIndex];
+        layers[activeLayerIndex] = layers[activeLayerIndex - 1];
+        layers[activeLayerIndex - 1] = temp;
+        activeLayerIndex--;
+        renderLayers();
+        setActiveLayer(activeLayerIndex);
+    });
+
+    createLayer();
+});
+</script><script>
+var mode = 'brush';
+var toolSize = 5;
+
+document.addEventListener('DOMContentLoaded', function() {
+    const toolbar = document.querySelector('aside:first-of-type');
+    const templateTool = document.getElementById('template-tool');
+    const canvas = document.querySelector('main > canvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = Math.max(600, canvas.parentElement.clientWidth - 20);
+    canvas.height = Math.max(400, canvas.parentElement.clientHeight - 20);
+
+    const tools = [
+        { name: 'Brush', mode: 'brush' },
+        { name: 'Eraser', mode: 'eraser' }
+    ];
+
+    tools.forEach(t => {
+        const btn = templateTool.cloneNode(true);
+        btn.removeAttribute('id');
+        btn.textContent = t.name;
+        btn.setAttribute('data-mode', t.mode);
+        btn.addEventListener('click', function() {
+            mode = this.getAttribute('data-mode');
+            updatePreview();
+        });
+        toolbar.appendChild(btn);
+    });
+
+    const sliderContainer = document.createElement('div');
+    sliderContainer.style.marginTop = '15px';
+    sliderContainer.style.display = 'flex';
+    sliderContainer.style.flexDirection = 'column';
+    sliderContainer.style.alignItems = 'center';
+    sliderContainer.style.gap = '5px';
+    sliderContainer.style.width = '100%';
+
+    const sizeSlider = document.createElement('input');
+    sizeSlider.type = 'range';
+    sizeSlider.min = '1';
+    sizeSlider.max = '50';
+    sizeSlider.value = toolSize;
+    sizeSlider.style.width = '100%';
+
+    const previewContainer = document.createElement('div');
+    previewContainer.style.width = '46px';
+    previewContainer.style.height = '46px';
+    previewContainer.style.backgroundColor = '#ffffff';
+    previewContainer.style.border = '2px inset #ffffff';
+    previewContainer.style.display = 'flex';
+    previewContainer.style.justifyContent = 'center';
+    previewContainer.style.alignItems = 'center';
+    previewContainer.style.overflow = 'hidden';
+
+    const previewCircle = document.createElement('div');
+    previewCircle.style.width = toolSize + 'px';
+    previewCircle.style.height = toolSize + 'px';
+    previewCircle.style.backgroundColor = typeof color !== 'undefined' ? color : '#000000';
+    previewCircle.style.borderRadius = '50%';
+
+    previewContainer.appendChild(previewCircle);
+    sliderContainer.appendChild(sizeSlider);
+    sliderContainer.appendChild(previewContainer);
+    toolbar.appendChild(sliderContainer);
+
+    function updatePreview() {
+        if (mode === 'brush') {
+            previewCircle.style.backgroundColor = typeof color !== 'undefined' ? color : '#000000';
+        } else {
+            previewCircle.style.backgroundColor = '#e0e0e0';
+        }
+    }
+
+    sizeSlider.addEventListener('input', function() {
+        toolSize = parseInt(this.value);
+        previewCircle.style.width = toolSize + 'px';
+        previewCircle.style.height = toolSize + 'px';
+    });
+
+    document.addEventListener('click', updatePreview);
+
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    function getCoordinates(e) {
+        const rect = canvas.getBoundingClientRect();
+        let clientX = e.clientX;
+        let clientY = e.clientY;
+        
+        if (e.touches && e.touches.length > 0) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        }
+        
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        };
+    }
+
+    function startInteraction(e) {
+        if (e.type === 'mousedown' && e.button !== 0) return;
+        isDrawing = true;
+        const coords = getCoordinates(e);
+        lastX = coords.x;
+        lastY = coords.y;
+        performModeAction(e);
+    }
+
+    function endInteraction() {
+        isDrawing = false;
+        ctx.beginPath();
+    }
+
+    function performModeAction(e) {
+        if (!isDrawing) return;
+        if (e.cancelable) e.preventDefault();
+        
+        const coords = getCoordinates(e);
+        
+        ctx.lineWidth = toolSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        if (mode === 'brush') {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.strokeStyle = typeof color !== 'undefined' ? color : '#000000';
+        } else if (mode === 'eraser') {
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.strokeStyle = 'rgba(0,0,0,1)';
+        }
+        
+        ctx.beginPath();
+        ctx.moveTo(lastX, lastY);
+        ctx.lineTo(coords.x, coords.y);
+        ctx.stroke();
+        
+        lastX = coords.x;
+        lastY = coords.y;
+    }
+
+    canvas.addEventListener('mousedown', startInteraction);
+    canvas.addEventListener('mousemove', performModeAction);
+    window.addEventListener('mouseup', endInteraction);
+    
+    canvas.addEventListener('touchstart', startInteraction, { passive: false });
+    canvas.addEventListener('touchmove', performModeAction, { passive: false });
+    window.addEventListener('touchend', endInteraction);
+    window.addEventListener('touchcancel', endInteraction);
+});
+</script>

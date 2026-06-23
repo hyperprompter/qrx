@@ -1,0 +1,1238 @@
+<style>
+  * {
+    box-sizing: border-box;
+    cursor: default;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #008080; /* Windows Teal */
+    font-family: "MS Sans Serif", Arial, sans-serif;
+    font-size: 12px;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Utility: Windows 95 3D Borders */
+  .win95-border-outset {
+    background-color: #c0c0c0;
+    border-top: 1px solid #ffffff;
+    border-left: 1px solid #ffffff;
+    border-right: 1px solid #000000;
+    border-bottom: 1px solid #000000;
+    box-shadow: 1px 1px 0 #000000, -1px -1px 0 #dfdfdf;
+  }
+
+  .win95-border-inset {
+    background-color: #ffffff;
+    border-top: 1px solid #000000;
+    border-left: 1px solid #000000;
+    border-right: 1px solid #ffffff;
+    border-bottom: 1px solid #ffffff;
+    box-shadow: 1px 1px 0 #ffffff, -1px -1px 0 #dfdfdf;
+  }
+
+  /* Button Styles */
+  button {
+    font-family: "MS Sans Serif", Arial, sans-serif;
+    font-size: 11px;
+    background-color: #c0c0c0;
+    border-top: 1px solid #ffffff;
+    border-left: 1px solid #ffffff;
+    border-right: 1px solid #000000;
+    border-bottom: 1px solid #000000;
+    box-shadow: 1px 1px 0 #000000, -1px -1px 0 #dfdfdf;
+    padding: 2px 6px;
+    outline: none;
+  }
+  button:active {
+    border-top: 1px solid #000000;
+    border-left: 1px solid #000000;
+    border-right: 1px solid #ffffff;
+    border-bottom: 1px solid #ffffff;
+    box-shadow: none;
+    padding: 3px 5px 1px 7px; /* Shift text */
+  }
+
+  /* Taskbar */
+  .taskbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 28px;
+    background-color: #c0c0c0;
+    border-top: 1px solid #ffffff;
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    z-index: 9999;
+  }
+
+  .start-btn {
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    margin-right: 4px;
+    padding: 2px 6px;
+  }
+
+  .taskbar-divider {
+    flex-grow: 1;
+    border-left: 1px solid #808080;
+    border-right: 1px solid #ffffff;
+    height: 20px;
+    margin: 0 4px;
+  }
+
+  .time-tray {
+    border-top: 1px solid #808080;
+    border-left: 1px solid #808080;
+    border-right: 1px solid #ffffff;
+    border-bottom: 1px solid #ffffff;
+    padding: 2px 8px;
+    background: #c0c0c0;
+    font-size: 11px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+  }
+
+  /* Window Template */
+  .window {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 400px;
+    display: flex;
+    flex-direction: column;
+    padding: 3px;
+    background-color: #c0c0c0;
+  }
+
+  .title-bar {
+    background-color: #000080;
+    color: white;
+    padding: 1px 2px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+    height: 18px;
+  }
+
+  .title-text {
+    font-weight: bold;
+    margin-left: 2px;
+  }
+
+  .window-controls {
+    display: flex;
+    gap: 2px;
+  }
+
+  .window-controls button {
+    width: 16px;
+    height: 14px;
+    padding: 0;
+    font-size: 8px;
+    line-height: 8px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .address-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+    padding: 2px;
+    border-top: 1px solid #ffffff;
+    border-bottom: 1px solid #808080;
+  }
+
+  .address-label {
+    color: #000;
+  }
+
+  .address-input-wrapper {
+    flex-grow: 1;
+    background: white;
+    border-top: 1px solid #808080;
+    border-left: 1px solid #808080;
+    border-right: 1px solid #ffffff;
+    border-bottom: 1px solid #ffffff;
+    height: 20px;
+    display: flex;
+    align-items: center;
+  }
+
+  .address-input {
+    width: 100%;
+    border: none;
+    outline: none;
+    padding: 2px 4px;
+    font-family: inherit;
+    font-size: 11px;
+  }
+
+  .window-body {
+    background-color: #ffffff;
+    border-top: 1px solid #000000;
+    border-left: 1px solid #000000;
+    border-right: 1px solid #ffffff;
+    border-bottom: 1px solid #ffffff;
+    height: 200px; /* Default height */
+    overflow: auto;
+  }
+</style>
+
+<!-- Reusable Window Template (Hidden) -->
+<div id="window-template" class="window win95-border-outset" style="display: none;">
+  <div class="title-bar">
+    <div class="title-text">Template Window</div>
+    <div class="window-controls">
+      <button aria-label="Minimize">_</button>
+      <button aria-label="Maximize">□</button>
+      <button aria-label="Close">×</button>
+    </div>
+  </div>
+  
+  <div class="address-bar">
+    <span class="address-label">Address</span>
+    <div class="address-input-wrapper">
+      <input type="text" class="address-input" value="" />
+    </div>
+    <button aria-label="Refresh">↻</button>
+    <button>Go</button>
+  </div>
+
+  <div class="window-body">
+    <!-- Content goes here -->
+  </div>
+</div>
+
+<!-- Taskbar -->
+<div class="taskbar">
+  <button class="start-btn">
+    🪟 Start
+  </button>
+  <div class="taskbar-divider"></div>
+  <div class="time-tray">
+    12:00 PM
+  </div>
+</div><script>
+  (function() {
+    // Desktop Icon Container Style
+    const desktop = document.createElement('div');
+    Object.assign(desktop.style, {
+      position: 'absolute',
+      top: '0',
+      left: '0',
+      width: '100%',
+      height: 'calc(100% - 28px)',
+      display: 'flex',
+      flexDirection: 'column',
+      flexWrap: 'wrap',
+      alignContent: 'flex-start',
+      padding: '10px',
+      gap: '20px',
+      zIndex: '0'
+    });
+    document.body.appendChild(desktop);
+
+    // Database access
+    const request = indexedDB.open(window.DB || 'FileSystemDB');
+
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      const storeName = window.FILES || 'files';
+
+      if (!db.objectStoreNames.contains(storeName)) return;
+
+      const transaction = db.transaction([storeName], 'readonly');
+      const store = transaction.objectStore(storeName);
+      const keyRequest = store.getAllKeys();
+
+      keyRequest.onsuccess = (e) => {
+        const keys = e.target.result;
+        const processedFolders = new Set();
+
+        keys.forEach(key => {
+          const hasSlash = key.includes('/');
+          
+          if (hasSlash) {
+            // It's a folder at the top level
+            const folderName = key.split('/')[0];
+            
+            if (!processedFolders.has(folderName)) {
+              processedFolders.add(folderName);
+              renderIcon('📁', folderName);
+            }
+          } else {
+            // It's a file at the top level
+            // Label is everything after final / (or whole string)
+console.log(key)
+            const fileName = key.substring(key.lastIndexOf('/') + 1);
+            renderIcon('📄', fileName);
+          }
+        });
+      };
+    };
+
+    function renderIcon(emoji, labelText) {
+      const iconContainer = document.createElement('div');
+      Object.assign(iconContainer.style, {
+        width: '70px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        cursor: 'pointer',
+        marginBottom: '10px'
+      });
+
+      const icon = document.createElement('div');
+      icon.textContent = emoji;
+      icon.style.fontSize = '32px';
+
+      const label = document.createElement('div');
+      label.textContent = labelText;
+      Object.assign(label.style, {
+        color: '#ffffff',
+        fontFamily: '"MS Sans Serif", Arial, sans-serif',
+        fontSize: '11px',
+        marginTop: '4px',
+        textShadow: '1px 1px 0 #000000', // Classic drop shadow for visibility on teal
+        wordBreak: 'break-word',
+        lineHeight: '1.2'
+      });
+
+      iconContainer.appendChild(icon);
+      iconContainer.appendChild(label);
+      desktop.appendChild(iconContainer);
+    }
+  })();
+</script><script>
+  (function() {
+    const dbName = window.DB || 'FileSystemDB';
+    const storeName = window.FILES || 'files';
+
+    // Inject styles for file explorer content
+    const style = document.createElement('style');
+    style.textContent = `
+      .window-body-content {
+        display: flex;
+        flex-wrap: wrap;
+        align-content: flex-start;
+        gap: 10px;
+        padding: 10px;
+        height: 100%;
+        background: #fff;
+      }
+      .fs-icon {
+        width: 60px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        cursor: pointer;
+      }
+      .fs-icon:active .fs-label {
+        background-color: #000080;
+        color: white;
+        outline: 1px dotted #fff;
+      }
+      .fs-emoji {
+        font-size: 24px;
+        margin-bottom: 2px;
+      }
+      .fs-label {
+        font-family: "MS Sans Serif", Arial, sans-serif;
+        font-size: 11px;
+        color: #000;
+        word-break: break-word;
+        padding: 0 2px;
+        line-height: 1.2;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Database Helper
+    function getFileSystemEntries(path, callback) {
+      const request = indexedDB.open(dbName);
+      request.onsuccess = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(storeName)) return;
+
+        const transaction = db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const keyRequest = store.getAllKeys();
+
+        keyRequest.onsuccess = (ev) => {
+          const keys = ev.target.result;
+          const folders = new Set();
+          const files = new Set();
+
+          // Normalize path for query
+          let searchPrefix = path;
+          // Handle "C:\" or root
+          if (searchPrefix === 'C:\\' || searchPrefix === '') {
+            searchPrefix = '';
+          } else if (!searchPrefix.endsWith('/')) {
+            searchPrefix += '/';
+          }
+
+          keys.forEach(key => {
+            if (key.startsWith(searchPrefix)) {
+              const relative = key.substring(searchPrefix.length);
+              if (!relative) return; // Exact match of folder itself
+
+              const parts = relative.split('/');
+              if (parts.length > 1) {
+                folders.add(parts[0]);
+              } else {
+                files.add(parts[0]);
+              }
+            }
+          });
+          callback(Array.from(folders), Array.from(files));
+        };
+      };
+    }
+
+    // Window Navigation Logic
+    function navigateWindow(win, path) {
+      const addressInput = win.querySelector('.address-input');
+      const body = win.querySelector('.window-body');
+      
+      // Update Address Bar
+      addressInput.value = path;
+
+      // Clear Content
+      body.innerHTML = '';
+      const container = document.createElement('div');
+      container.className = 'window-body-content';
+      body.appendChild(container);
+
+      // Fetch and Render
+      getFileSystemEntries(path, (folders, files) => {
+        // Render Folders
+        folders.forEach(folder => {
+          const icon = createIcon('📁', folder, () => {
+            // Determine new path (handle root vs subfolder)
+            const current = addressInput.value;
+            const separator = (current === 'C:\\' || current === '') ? '' : '/';
+            // If current is C:\, we want just "Folder", else "Path/Folder"
+            // Assuming DB keys are like "Documents/..." (no C: prefix in keys)
+            
+            let nextPath;
+            if (current === 'C:\\') nextPath = folder;
+            else nextPath = current + '/' + folder;
+            
+            navigateWindow(win, nextPath);
+          });
+          container.appendChild(icon);
+        });
+
+        // Render Files
+        files.forEach(file => {
+          const icon = createIcon('📄', file, () => {});
+          container.appendChild(icon);
+        });
+      });
+    }
+
+    // Icon Generator
+    function createIcon(emoji, label, onClick) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'fs-icon';
+      
+      const ico = document.createElement('div');
+      ico.className = 'fs-emoji';
+      ico.textContent = emoji;
+      
+      const txt = document.createElement('div');
+      txt.className = 'fs-label';
+      txt.textContent = label;
+
+      wrapper.appendChild(ico);
+      wrapper.appendChild(txt);
+
+      wrapper.addEventListener('click', (e) => {
+        e.stopPropagation();
+        onClick();
+      });
+
+      return wrapper;
+    }
+
+    // Open New Window
+    function openExplorerWindow(initialPath) {
+      const template = document.getElementById('window-template');
+      const win = template.cloneNode(true);
+      
+      // Setup Window Properties
+      win.id = 'explorer-' + Date.now();
+      win.style.display = 'flex';
+      
+      // Basic Stacking Logic
+      const existing = document.querySelectorAll('.window:not(#window-template)');
+      const offset = 20 + (existing.length * 25);
+      win.style.top = offset + 'px';
+      win.style.left = offset + 'px';
+      win.style.zIndex = 100 + existing.length;
+
+      // Update Title
+      win.querySelector('.title-text').textContent = initialPath || 'C:\\';
+
+      // Controls
+      const addressInput = win.querySelector('.address-input');
+      const buttons = win.querySelectorAll('button');
+      let goBtn;
+      buttons.forEach(b => { if(b.textContent === 'Go') goBtn = b; });
+
+      const handleGo = () => navigateWindow(win, addressInput.value);
+
+      if (goBtn) goBtn.addEventListener('click', handleGo);
+      addressInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleGo();
+      });
+
+      // Mount and Initialize
+      document.body.appendChild(win);
+      navigateWindow(win, initialPath);
+      
+      // Focus Address Bar
+      setTimeout(() => addressInput.focus(), 50);
+    }
+
+    // Desktop Interaction (Delegate)
+    document.body.addEventListener('click', (e) => {
+      // Find the icon container (created by previous script)
+      let target = e.target;
+      let container = null;
+
+      // Traverse up max 3 levels to find the icon container
+      for (let i = 0; i < 3; i++) {
+        if (!target || target === document.body) break;
+        // Check for specific structure from previous script (div > div(emoji) + div(label))
+        // The container in previous script has textContent containing the emoji
+        if (target.children.length === 2) {
+          const firstChild = target.children[0];
+          if (firstChild && firstChild.textContent.trim() === '📁') {
+            container = target;
+            break;
+          }
+        }
+        target = target.parentNode;
+      }
+
+      if (container) {
+        // It is a desktop folder
+        const label = container.children[1].textContent;
+        openExplorerWindow(label);
+      }
+    });
+
+  })();
+</script><script>
+  (function() {
+    // Configuration
+    const DEFAULT_DB = window.DB || 'FileSystemDB';
+
+    // Helper: Open File Window
+    window.openFileWindow = function (fullPath) {
+      const template = document.getElementById('window-template');
+      const win = template.cloneNode(true);
+      
+      // Window Setup
+      const winId = 'file-window-' + Date.now();
+      win.id = winId;
+      win.style.display = 'flex';
+      
+      // Stack window
+      const existing = document.querySelectorAll('.window:not(#window-template)');
+      const offset = 30 + (existing.length * 20);
+      win.style.top = offset + 'px';
+      win.style.left = offset + 'px';
+      win.style.zIndex = 200 + existing.length;
+      
+      // Reset Body for Iframe
+      const body = win.querySelector('.window-body');
+      body.innerHTML = '';
+      body.style.overflow = 'hidden'; // Iframe handles scroll
+      body.style.display = 'flex';
+      body.style.flexDirection = 'column';
+      body.style.height = '300px'; // Slightly larger for viewing
+
+      // Create Iframe
+      const iframe = document.createElement('iframe');
+      Object.assign(iframe.style, {
+        flexGrow: '1',
+        width: '100%',
+        border: 'none',
+        backgroundColor: '#fff'
+      });
+      
+      // Address Bar Elements
+      const addressInput = win.querySelector('.address-input');
+      const titleText = win.querySelector('.title-text');
+      const goBtn = Array.from(win.querySelectorAll('button')).find(b => b.textContent === 'Go');
+
+      // State
+      let currentPath = fullPath;
+      
+      // Logic: Update View
+      const updateView = (inputPath) => {
+        // Parse input for DB or Hash
+        let src;
+        if (inputPath.includes('#')) {
+          // Input is full URL (db#file)
+          src = inputPath;
+        } else {
+          // Input is just path, append DB
+          src = `${DEFAULT_DB}#${inputPath}`;
+        }
+
+        // Update UI
+        titleText.textContent = inputPath;
+        
+        // Only reload iframe if changed to prevent loop flicker
+        // Decode URI to handle encoded comparisons
+        try {
+            const currentSrc = iframe.contentWindow ? iframe.contentWindow.location.href : '';
+            if (!currentSrc.endsWith(src)) {
+                iframe.src = src;
+            }
+        } catch(e) {
+            iframe.src = src;
+        }
+      };
+
+      // Initial Set
+      addressInput.value = currentPath;
+      updateView(currentPath);
+
+      // Listener: Iframe -> Address Bar (Sync)
+      iframe.onload = () => {
+        try {
+          const syncAddress = () => {
+            const hash = iframe.contentWindow.location.hash.substring(1); // Remove #
+            // Check if we have a db component in the iframe URL to determine if we show just hash or full
+            // Prompt says: "set the addressbar to full/file/path" and "URLs must always be in the form db#file"
+            // If iframe is at "db#foo", we show "foo".
+            if (hash && addressInput.value !== hash) {
+              addressInput.value = hash;
+              titleText.textContent = hash;
+            }
+          };
+
+          // Listen for hash changes inside iframe
+          iframe.contentWindow.addEventListener('hashchange', syncAddress);
+          syncAddress(); // Run once on load
+        } catch (err) {
+          // Cross-origin protection might block this in some environments
+          console.warn('Iframe sync restricted:', err);
+        }
+      };
+
+      // Listener: Address Bar -> Iframe
+      const handleUserNav = () => {
+        const val = addressInput.value;
+        updateView(val);
+      };
+
+      if (goBtn) goBtn.onclick = handleUserNav;
+      addressInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') handleUserNav();
+      });
+
+      // Mount
+      body.appendChild(iframe);
+      document.body.appendChild(win);
+    }
+
+    // Global Click Listener for File Icons
+    // Use Capture (true) to intercept clicks before previous script's stopPropagation()
+    document.body.addEventListener('click', (e) => {
+      let target = e.target;
+      let container = null;
+
+      // Find Icon Container
+      // Check up to 3 parents
+      for (let i = 0; i < 3; i++) {
+        if (!target || target === document.body) break;
+        
+        // 1. Check for Explorer Icon class (.fs-icon)
+        if (target.classList && target.classList.contains('fs-icon')) {
+          container = target;
+          break;
+        }
+        
+        // 2. Check for Desktop Icon structure (div > div(emoji) + div(label))
+        // Validated by checking first child emoji
+        if (target.children.length === 2) {
+          const firstChild = target.children[0];
+          if (firstChild && (firstChild.textContent.trim() === '📄' || firstChild.classList.contains('fs-emoji'))) {
+            container = target;
+            break;
+          }
+        }
+        target = target.parentNode;
+      }
+
+      if (!container) return;
+
+      // Validate it is a FILE icon
+      const emojiDiv = container.querySelector('.fs-emoji') || container.children[0];
+      const emoji = emojiDiv ? emojiDiv.textContent.trim() : '';
+      
+      if (emoji !== '📄') return; // Ignore folders
+
+      // Extract Name
+      const labelDiv = container.querySelector('.fs-label') || container.children[1];
+      const fileName = labelDiv.textContent.trim();
+
+      // Determine Full Path
+      let fullPath = fileName;
+      
+      // Check if this icon is inside a Window (Explorer)
+      const parentWin = container.closest('.window');
+      
+      if (parentWin && !parentWin.id.includes('template')) {
+        // Get path from Explorer Window Address Bar
+        const addrInput = parentWin.querySelector('.address-input');
+        if (addrInput) {
+          let currentDir = addrInput.value;
+          // Normalize (remove C:\ or trailing slash)
+          if (currentDir === 'C:\\') currentDir = '';
+          if (currentDir.endsWith('/')) currentDir = currentDir.slice(0, -1);
+          
+          if (currentDir) {
+            fullPath = `${currentDir}/${fileName}`;
+          }
+        }
+      }
+
+      // Open The Viewer
+      openFileWindow(fullPath);
+
+    }, true); // Capture phase is critical here
+  })();
+</script><script>
+  (function() {
+    let zIndex = 1000;
+    
+    // Observer to attach logic to new windows automatically
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === 1 && node.classList.contains('window') && node.id !== 'window-template') {
+            initWindow(node);
+          }
+        });
+      });
+    });
+    observer.observe(document.body, { childList: true });
+
+    function initWindow(win) {
+      if (win.dataset.initialized) return;
+      win.dataset.initialized = 'true';
+
+      // 1. Structural CSS Adjustments for Resizing
+      // Ensure window flex behavior so body fills height
+      win.style.display = 'flex';
+      win.style.flexDirection = 'column';
+      // Default size if not set
+      if (!win.style.width) win.style.width = '400px';
+      if (!win.style.height) win.style.height = '300px';
+
+      const winBody = win.querySelector('.window-body');
+      if (winBody) {
+        // Override static CSS height to allow flex resizing
+        winBody.style.flex = '1';
+        winBody.style.height = 'auto'; 
+        winBody.style.minHeight = '0'; // Fixes nested scroll/flex issues
+      }
+
+      // 2. Taskbar Integration
+      const taskbarBtn = createTaskbarEntry(win);
+
+      // 3. Controls
+      const closeBtn = win.querySelector('button[aria-label="Close"]');
+      const maxBtn = win.querySelector('button[aria-label="Maximize"]');
+      const minBtn = win.querySelector('button[aria-label="Minimize"]');
+      const titleBar = win.querySelector('.title-bar');
+
+      // Bring to front on click
+      win.addEventListener('mousedown', () => focusWindow(win, taskbarBtn));
+
+      // Close
+      if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          win.remove();
+          if (taskbarBtn) taskbarBtn.remove();
+        });
+      }
+
+      // Maximize
+      if (maxBtn) {
+        maxBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleMaximize(win);
+        });
+        // Double click title bar to maximize
+        titleBar.addEventListener('dblclick', () => toggleMaximize(win));
+      }
+
+      // Minimize
+      if (minBtn) {
+        minBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          win.style.display = 'none';
+          if (taskbarBtn) {
+            taskbarBtn.classList.remove('active');
+            taskbarBtn.style.boxShadow = '1px 1px 0 #000000, -1px -1px 0 #dfdfdf'; // Outset
+            taskbarBtn.style.background = '#c0c0c0';
+          }
+        });
+      }
+
+      // 4. Draggable Title Bar
+      if (titleBar) {
+        titleBar.addEventListener('mousedown', (e) => {
+          if (e.target.tagName === 'BUTTON') return; // Ignore control buttons
+          if (win.dataset.maximized === 'true') return;
+          
+          e.preventDefault();
+          focusWindow(win, taskbarBtn);
+
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const rect = win.getBoundingClientRect();
+          const offsetX = startX - rect.left;
+          const offsetY = startY - rect.top;
+
+          // Prevent iframe interaction during drag
+          toggleIframes(false);
+
+          function onMove(ev) {
+            win.style.left = (ev.clientX - offsetX) + 'px';
+            win.style.top = (ev.clientY - offsetY) + 'px';
+          }
+
+          function onUp() {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            toggleIframes(true);
+          }
+
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onUp);
+        });
+      }
+
+      // 5. Resizable Borders
+      addResizeHandles(win);
+      
+      // Initial Focus
+      focusWindow(win, taskbarBtn);
+    }
+
+    // --- Helpers ---
+
+    function focusWindow(win, btn) {
+      win.style.zIndex = ++zIndex;
+      
+      // Update taskbar visual state
+      document.querySelectorAll('.taskbar button').forEach(b => {
+        // Reset others to outset
+        if (b !== btn && !b.classList.contains('start-btn')) {
+            b.style.boxShadow = '1px 1px 0 #000000, -1px -1px 0 #dfdfdf';
+            b.style.background = '#c0c0c0';
+            b.style.fontWeight = 'normal';
+        }
+      });
+      
+      if (btn) {
+        // Set active inset style
+        btn.style.boxShadow = '1px 1px 0 #ffffff, -1px -1px 0 #dfdfdf';
+        btn.style.background = '#eeeeee'; // Slightly lighter to show pressed
+        btn.style.borderTop = '1px solid #000'; // Mimic pressed
+        btn.style.borderLeft = '1px solid #000';
+        btn.style.fontWeight = 'bold';
+      }
+    }
+
+    function toggleMaximize(win) {
+      if (win.dataset.maximized === 'true') {
+        // Restore
+        win.style.top = win.dataset.prevTop;
+        win.style.left = win.dataset.prevLeft;
+        win.style.width = win.dataset.prevWidth;
+        win.style.height = win.dataset.prevHeight;
+        win.dataset.maximized = 'false';
+      } else {
+        // Maximize
+        win.dataset.prevTop = win.style.top;
+        win.dataset.prevLeft = win.style.left;
+        win.dataset.prevWidth = win.style.width;
+        win.dataset.prevHeight = win.style.height;
+
+        win.style.top = '0';
+        win.style.left = '0';
+        win.style.width = '100vw';
+        win.style.height = 'calc(100vh - 28px)'; // Subtract taskbar
+        win.dataset.maximized = 'true';
+      }
+    }
+
+    function toggleIframes(enable) {
+      const frames = document.querySelectorAll('iframe');
+      frames.forEach(f => f.style.pointerEvents = enable ? 'auto' : 'none');
+    }
+
+    function createTaskbarEntry(win) {
+      const taskbar = document.querySelector('.taskbar');
+      const timeTray = document.querySelector('.time-tray');
+      if (!taskbar) return null;
+
+      const btn = document.createElement('button');
+      // Style logic inline to match system
+      Object.assign(btn.style, {
+        flex: '1 1 0', // Flexible width
+        maxWidth: '160px',
+        height: '22px',
+        marginLeft: '4px',
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+        textOverflow: 'ellipsis',
+        textAlign: 'left',
+        display: 'flex',
+        alignItems: 'center',
+        paddingLeft: '5px',
+        fontSize: '11px'
+      });
+
+      // Clone title text
+      const title = win.querySelector('.title-text');
+      const updateTitle = () => { btn.textContent = title.textContent; };
+      updateTitle();
+      
+      // Observer title changes (e.g. browsing folders)
+      new MutationObserver(updateTitle).observe(title, { characterData: true, childList: true, subtree: true });
+
+      btn.addEventListener('click', () => {
+        if (win.style.display === 'none') {
+          win.style.display = 'flex';
+          focusWindow(win, btn);
+        } else {
+          // If top window, minimize. Else bring to front.
+          if (parseInt(win.style.zIndex) === zIndex) {
+            win.style.display = 'none';
+            // Reset button style
+            btn.style.boxShadow = '1px 1px 0 #000000, -1px -1px 0 #dfdfdf';
+            btn.style.background = '#c0c0c0';
+            btn.style.fontWeight = 'normal';
+          } else {
+            focusWindow(win, btn);
+          }
+        }
+      });
+
+      taskbar.insertBefore(btn, timeTray);
+      return btn;
+    }
+
+    function addResizeHandles(win) {
+      const dirs = ['n', 'e', 's', 'w', 'ne', 'nw', 'se', 'sw'];
+      const size = 5;
+
+      dirs.forEach(dir => {
+        const h = document.createElement('div');
+        Object.assign(h.style, {
+          position: 'absolute',
+          zIndex: '10'
+        });
+
+        // Positioning
+        if (dir === 'n') Object.assign(h.style, { top: -size/2+'px', left: 0, width: '100%', height: size+'px', cursor: 'ns-resize' });
+        if (dir === 's') Object.assign(h.style, { bottom: -size/2+'px', left: 0, width: '100%', height: size+'px', cursor: 'ns-resize' });
+        if (dir === 'e') Object.assign(h.style, { top: 0, right: -size/2+'px', height: '100%', width: size+'px', cursor: 'ew-resize' });
+        if (dir === 'w') Object.assign(h.style, { top: 0, left: -size/2+'px', height: '100%', width: size+'px', cursor: 'ew-resize' });
+        
+        // Corners (Larger hit area)
+        const cSize = 10;
+        if (dir === 'ne') Object.assign(h.style, { top: -cSize/2+'px', right: -cSize/2+'px', width: cSize+'px', height: cSize+'px', cursor: 'ne-resize', zIndex: 11 });
+        if (dir === 'nw') Object.assign(h.style, { top: -cSize/2+'px', left: -cSize/2+'px', width: cSize+'px', height: cSize+'px', cursor: 'nw-resize', zIndex: 11 });
+        if (dir === 'se') Object.assign(h.style, { bottom: -cSize/2+'px', right: -cSize/2+'px', width: cSize+'px', height: cSize+'px', cursor: 'se-resize', zIndex: 11 });
+        if (dir === 'sw') Object.assign(h.style, { bottom: -cSize/2+'px', left: -cSize/2+'px', width: cSize+'px', height: cSize+'px', cursor: 'sw-resize', zIndex: 11 });
+
+        win.appendChild(h);
+
+        h.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (win.dataset.maximized === 'true') return;
+          
+          focusWindow(win);
+          toggleIframes(false);
+
+          const startX = e.clientX;
+          const startY = e.clientY;
+          const startW = win.offsetWidth;
+          const startH = win.offsetHeight;
+          const startTop = win.offsetTop;
+          const startLeft = win.offsetLeft;
+
+          function onResize(ev) {
+            const dx = ev.clientX - startX;
+            const dy = ev.clientY - startY;
+            
+            let newW = startW;
+            let newH = startH;
+            let newL = startLeft;
+            let newT = startTop;
+
+            if (dir.includes('e')) newW = startW + dx;
+            if (dir.includes('s')) newH = startH + dy;
+            if (dir.includes('w')) { newW = startW - dx; newL = startLeft + dx; }
+            if (dir.includes('n')) { newH = startH - dy; newT = startTop + dy; }
+
+            if (newW < 200) newW = 200;
+            if (newH < 150) newH = 150;
+
+            if (dir.includes('w')) win.style.left = newL + 'px';
+            if (dir.includes('n')) win.style.top = newT + 'px';
+            
+            win.style.width = newW + 'px';
+            win.style.height = newH + 'px';
+          }
+
+          function onEnd() {
+            document.removeEventListener('mousemove', onResize);
+            document.removeEventListener('mouseup', onEnd);
+            toggleIframes(true);
+          }
+
+          document.addEventListener('mousemove', onResize);
+          document.addEventListener('mouseup', onEnd);
+        });
+      });
+    }
+
+  })();
+</script><script>
+  (function() {
+    const timeTray = document.querySelector('.time-tray');
+    if (!timeTray) return;
+
+    let batteryStr = '';
+    let clockStr = '';
+
+    function renderTimeArea() {
+      timeTray.textContent = (batteryStr ? batteryStr + '  ' : '') + clockStr;
+    }
+
+    function updateClock() {
+      const now = new Date();
+      let hours = now.getHours();
+      let minutes = now.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      minutes = minutes < 10 ? '0' + minutes : minutes;
+      
+      clockStr = hours + ':' + minutes + ' ' + ampm;
+      renderTimeArea();
+    }
+
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    if (navigator.getBattery) {
+      navigator.getBattery().then(function(battery) {
+        function updateBattery() {
+          const percent = Math.floor(battery.level * 100);
+          const icon = battery.charging ? '🔌' : '🔋';
+          batteryStr = icon + ' ' + percent + '%';
+          renderTimeArea();
+        }
+
+        updateBattery();
+        battery.addEventListener('levelchange', updateBattery);
+        battery.addEventListener('chargingchange', updateBattery);
+      });
+    }
+  })();
+</script><script>
+(async function() {
+  var SpeechAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+  console.log("Speech API found:", !!SpeechAPI);
+
+  if (!SpeechAPI) return;
+
+  var recognition = new SpeechAPI();
+  recognition.continuous = true;
+  recognition.interimResults = false;
+
+  var taskbar = document.querySelector('.taskbar');
+  if (!taskbar) return;
+
+  var micBtn = document.createElement('button');
+  micBtn.textContent = '🎙️';
+  micBtn.style.marginLeft = '4px';
+  taskbar.appendChild(micBtn);
+  
+  console.log("Mic button added");
+
+  var state = false;
+
+  micBtn.addEventListener('mousedown', function(event) {
+    event.preventDefault();
+    state = !state;
+    console.log("Mic clicked. State listening:", state);
+
+    if (state) {
+      micBtn.textContent = '🔴';
+      try {
+        recognition.start();
+      } catch (err) {
+        console.error("Start failed:", err);
+      }
+    } else {
+      micBtn.textContent = '🎙️';
+      try {
+        recognition.stop();
+      } catch (err) {
+        console.error("Stop failed:", err);
+      }
+    }
+  });
+
+  recognition.onstart = function() {
+    console.log("Speech started successfully");
+  };
+
+  recognition.onerror = function(event) {
+    console.error("Speech error:", event.error);
+  };
+
+  recognition.onend = function() {
+    console.log("Speech ended");
+    if (state) {
+      setTimeout(function() {
+        try {
+          recognition.start();
+        } catch (err) {
+          console.error("Restart failed:", err);
+        }
+      }, 200);
+    }
+  };
+
+  recognition.onresult = function(event) {
+    var transcript = "";
+    for (var i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        transcript += event.results[i][0].transcript;
+      }
+    }
+    console.log("Heard:", transcript);
+
+    var el = document.activeElement;
+    console.log("Base active element:", el);
+
+    while (el && el.tagName === 'IFRAME') {
+      try {
+        el = el.contentDocument.activeElement;
+        console.log("Iframe active element:", el);
+      } catch (err) {
+        console.error(err);
+        break;
+      }
+    }
+
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+      console.log("Target found!", el);
+      var currentVal = el.value || "";
+      var prefix = (currentVal.length > 0 && currentVal.charAt(currentVal.length - 1) !== ' ') ? ' ' : '';
+      el.value = currentVal + prefix + transcript.trim();
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+      console.warn("Active element is not a text field. Text discarded.");
+    }
+  };
+})();
+</script><script>
+window.addEventListener('keydown', function(event) {
+  if (event.ctrlKey && (event.code === 'Space' || event.key === ' ')) {
+    event.preventDefault();
+    var inputs = document.querySelectorAll('input');
+    for (var i = 0; i < inputs.length; i++) {
+      if (inputs[i].value && inputs[i].value.endsWith('run')) {
+        inputs[i].focus();
+        return;
+      }
+    }
+    var elements = document.querySelectorAll('*');
+    for (var j = 0; j < elements.length; j++) {
+      var text = elements[j].textContent || '';
+      var cleanedText = text.replace('📄', '').trim();
+      if (cleanedText === 'run') {
+        elements[j].click();
+        setTimeout(function() {
+          var newInputs = document.querySelectorAll('input');
+          for (var k = 0; k < newInputs.length; k++) {
+            if (newInputs[k].value && newInputs[k].value.endsWith('run')) {
+              newInputs[k].focus();
+              return;
+            }
+          }
+        }, 100);
+        return;
+      }
+    }
+  }
+});
+</script><script>
+(async function() {
+  var list = [];
+  try {
+    var res = await fetch('/data/index.json');
+    if (res.ok) list = await res.json();
+  } catch (e) {}
+  try {
+    var key = localStorage.getItem('SYNC_KEY');
+    if (key) {
+      var privRes = await fetch('/data/index.private.json', { headers: { 'Authorization': key } });
+      if (privRes.ok) {
+        var privList = await privRes.json();
+        list = [...new Set([...list, ...privList])];
+      }
+    }
+  } catch (e) {}
+  var datalist = document.createElement('datalist');
+  datalist.id = 'sys-file-list';
+  for (var i = 0; i < list.length; i++) {
+    var option = document.createElement('option');
+    option.value = list[i].replace('/', '#');
+    datalist.appendChild(option);
+  }
+  document.body.appendChild(datalist);
+  document.addEventListener('focusin', function(event) {
+    if (event.target && event.target.tagName === 'INPUT') {
+      event.target.setAttribute('list', 'sys-file-list');
+    }
+  });
+})();
+</script><script>window.dispatchEvent(new CustomEvent('main:ready'))</script>
