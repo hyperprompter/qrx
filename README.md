@@ -98,6 +98,7 @@ The bootloader runs on every page load, after the kernel has initialized its DB 
 - Fetches `data/index.json` — the server-side manifest of all known `namespace/key` paths — and persists it to IndexedDB
 - For the current target key and any `boot/` prefixed keys, fetches content from the server and writes it to IndexedDB if it has changed
 - Stubs all other known keys as empty strings so they appear in key listings without triggering a full fetch
+- If `SYNC_KEY` is set in `localStorage`, repeats the above for `data/index.private.json` — fetching and syncing private namespace content the same way
 - Reloads the page on first boot or whenever synced content has changed, so the kernel always starts with a consistent local state
 
 -----------------------------
@@ -121,6 +122,10 @@ QRX_SYNC_KEY=your-secret-here
 # Comma-separated list of namespaces publicly readable via /read
 # 'main' and 'cache' are always included regardless of this setting
 QRX_PUBLIC_NAMESPACES=main,wiki,cache
+
+# Comma-separated list of namespaces readable only with a valid SYNC_KEY
+# Never included in the GitHub Pages static build
+QRX_PRIVATE_NAMESPACES=oz,journal
 
 # Port the server listens on
 QRX_PORT=3000
@@ -151,7 +156,11 @@ All data is organized into namespaces — each one maps to a directory under `da
 2. The hostname: if `data/yourhostname/` exists, `window.NS` is injected into the served HTML and the kernel uses it as the active namespace
 3. Fallback: `main`
 
-Namespaces that aren't in `QRX_PUBLIC_NAMESPACES` (plus the always-included `main` and `cache`) are private — `/read` will return 404 for them unless the request carries a valid `QRX_SYNC_KEY`. This lets you host multiple users or contexts from one server with controlled visibility.
+There are three visibility tiers:
+
+- **Public** — listed in `QRX_PUBLIC_NAMESPACES` (plus the always-included `main` and `cache`). Readable by anyone via `/read`, included in `data/index.json`, copied into the GitHub Pages static build.
+- **Private** — listed in `QRX_PRIVATE_NAMESPACES`. Readable only by requests carrying a valid `Authorization: <SYNC_KEY>` header. Listed in `data/index.private.json` (see below). Never included in the GitHub Pages static build.
+- **Unlisted** — any namespace in neither list. Blocked at `/read` without a valid key, never appears in any index.
 
 The `main` namespace acts as a system-level fallback: if a key isn't found in the active namespace, `/read` tries `data/main/` before giving up.
 
@@ -171,6 +180,26 @@ It is regenerated automatically in two situations:
 The bootloader fetches this file on every page load to know what keys exist without having to enumerate IndexedDB. Keys not present in the index don't get synced from the server, even if they exist locally.
 
 URL-style keys (e.g. from `?u=` fetches) are stored on disk with `://` encoded as `%3A%2F` to avoid `path.join` collapsing the double slash. The index always contains the decoded original key so the kernel never sees the encoded form.
+
+## data/index.private.json
+
+`data/index.private.json` is the same structure as `index.json` but contains only namespaces listed in `QRX_PRIVATE_NAMESPACES`. It lives in `data/` rather than `public/data/`, so it is never served as a static file and never included in the GitHub Pages build.
+
+It is served exclusively via `GET /data/index.private.json`, which requires a valid `Authorization: <SYNC_KEY>` header — any request without one gets a 401.
+
+To access private namespaces in the browser, set your sync key in `localStorage` once:
+
+```js
+localStorage.setItem('SYNC_KEY', 'your-secret-here')
+```
+
+After that, on every page load the bootloader will:
+
+1. Read `SYNC_KEY` from `localStorage`
+2. Fetch `index.private.json` with it as the `Authorization` header
+3. Sync private keys into IndexedDB the same way public keys are synced
+
+If `SYNC_KEY` is absent or wrong, the private fetch silently fails and only public content is loaded. Never set `SYNC_KEY` on a shared or public device.
 
 ## URL Caching (`?u=`)
 
