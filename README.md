@@ -242,3 +242,13 @@ Instead, you can save your system prompt as a standard text file in your databas
 `?x=read('system').then(v => localStorage.setItem('s', v))`
 
 Because `?x` evaluates dynamically via `new Function` without an `async` wrapper, using the native Promise `.then()` chain successfully prevents top-level `await` syntax errors. This permanently sets your operating system's behavioral framework securely behind the scenes.
+
+
+------------------------------
+
+-----------------------------
+
+# Further Reading
+
+- [Deploying to Reddit (Devvit)](./docs/deploy/reddit.md) — how to create a Reddit app, install the CLI, and publish QRX as a Devvit post
+- [Devvit CSP Workarounds](./docs/deploy/devvit-csp-workarounds.md) — how a dynamic JS runtime survives inside Reddit's sandboxed webview
