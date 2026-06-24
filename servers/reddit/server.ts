@@ -1,7 +1,7 @@
 import express from 'express'
 import vm from 'vm'
 import { createServer, getServerPort, reddit, context } from '@devvit/web/server'
-import type { UiResponse } from '@devvit/web/shared'
+import type { MenuItemRequest, UiResponse } from '@devvit/web/shared'
 import bundledData from './data-bundle.json'
 
 const DATA: Record<string, string> = bundledData
@@ -65,11 +65,35 @@ router.post('/api/run', async (req, res): Promise<void> => {
 })
 
 router.post('/internal/menu/create-post', async (_req, res): Promise<void> => {
+  res.json({
+    showForm: {
+      name: 'createPostForm',
+      form: {
+        title: 'Create QRX Post',
+        acceptLabel: 'Create',
+        cancelLabel: 'Cancel',
+        fields: [
+          {
+            type: 'string',
+            name: 'title',
+            label: 'Post title',
+            required: true,
+          },
+        ],
+      },
+    },
+  } satisfies UiResponse)
+})
+
+router.post('/internal/form/create-post', async (req, res): Promise<void> => {
+  const { title } = req.body as { title: string }
   try {
     await reddit.submitCustomPost({
-      title: 'QRX',
+      title,
       subredditName: context.subredditName!,
       entry: 'default',
+      runAs: 'USER',
+      userGeneratedContent: { text: title },
     })
     res.json({ showToast: { text: 'QRX post created!', appearance: 'success' } } satisfies UiResponse)
   } catch (err) {

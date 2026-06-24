@@ -14,6 +14,9 @@
     "dir": "dist/server",
     "entry": "index.cjs"
   },
+  "forms": {
+    "createPostForm": "/internal/form/create-post"
+  },
   "menu": {
     "items": [
       {
@@ -25,7 +28,9 @@
     ]
   },
   "permissions": {
-    "reddit": true,
+    "reddit": {
+      "asUser": ["SUBMIT_POST"]
+    },
     "redis": true
   }
 }
