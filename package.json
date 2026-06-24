@@ -8,7 +8,9 @@
     "start": "node --env-file=.env server.js",
     "build": "vite build",
     "build:github": "GITHUB_PAGES=true node servers/github/build.js && GITHUB_PAGES=true vite build",
-    "build:reddit": "node servers/reddit/build.js"
+    "build:reddit": "REDDIT_BUILD=true vite build && node servers/reddit/build.js && vite build --config servers/reddit/vite.server.config.js",
+    "login:reddit": "devvit login",
+    "dev:reddit": "devvit playtest r/llm_os_dev"
   },
   "dependencies": {
     "html-minifier-terser": "^7.2.0",
@@ -16,6 +18,11 @@
     "vite": "^7.3.1"
   },
   "devDependencies": {
+    "@devvit/public-api": "^0.13.5",
+    "@devvit/web": "latest",
+    "@types/express": "^4.17.0",
+    "devvit": "latest",
+    "express": "^4.18.0",
     "vite-plugin-pwa": "^1.2.0"
   }
 }

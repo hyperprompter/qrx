@@ -318,15 +318,20 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const baseUrl = process.env.BASE_URL || env.BASE_URL || '/'
   const isGitHubPages = process.env.GITHUB_PAGES === 'true'
+  const isReddit = process.env.REDDIT_BUILD === 'true'
 
   if (isGitHubPages) {
     console.log('\n  Building for GitHub Pages (static bootloader)\n')
+  }
+  if (isReddit) {
+    console.log('\n  Building for Reddit (PWA disabled)\n')
   }
 
   return {
     base: baseUrl,
     plugins: [
-      VitePWA({
+      /* PWA is disabled for Reddit — service workers do not work inside Devvit webview iframes */
+      ...(isReddit ? [] : [VitePWA({
         strategies: 'generateSW',
         registerType: 'autoUpdate',
         injectRegister: null,
@@ -350,6 +355,7 @@ export default defineConfig(({ mode }) => {
           navigateFallback: baseUrl + 'index.html',
         },
       }),
+      ]),
       htmlMinifierPlugin(),
       qrCodePlugin(baseUrl, isGitHubPages),
     ],
