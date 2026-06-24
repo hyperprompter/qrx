@@ -4,17 +4,78 @@ var files = {}
 var scriptManifest = null
 var seeded = false
 
-/* Kernel globals the stored scripts expect */
 window.DB = 'main'
 window.FILES = 'files'
 window.MAIN = 'main'
+window.NS = Promise.resolve('main')
+
+/* Intercept iframe creation — override document.createElement to catch
+ * every new iframe and proxy its src property before scripts set it. */
+var _nativeCreateElement = document.createElement.bind(document)
+document.createElement = function(tag) {
+  var el = _nativeCreateElement(tag)
+  if (tag.toLowerCase() === 'iframe') {
+    var _src = ''
+    Object.defineProperty(el, 'src', {
+      get: function() { return _src },
+      set: function(val) {
+        _src = val
+        if (val && !val.startsWith('http') && !val.startsWith('//') && val !== 'about:blank') {
+          var hashMatch = val.match(/#(.+)$/)
+          var hash = hashMatch ? hashMatch[1] : 'main'
+          var self = this
+          /* Don't navigate — write content directly */
+          setTimeout(function() { renderIntoIframe(self, hash) }, 0)
+        } else {
+          el.setAttribute('src', val)
+        }
+      },
+      configurable: true
+    })
+  }
+  return el
+}
+
+async function renderIntoIframe(iframe, hash) {
+  /* Wait until iframe is attached to DOM so contentDocument is accessible */
+  var attempts = 0
+  while (!iframe.isConnected && attempts++ < 50) {
+    await new Promise(function(r) { setTimeout(r, 50) })
+  }
+  if (!iframe.isConnected) return
+
+  try {
+    var res = await fetch('/api/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ns: 'main', hash: hash, params: '', files: {} })
+    })
+    var data = await res.json()
+    var doc = iframe.contentDocument
+    if (!doc) return
+    doc.open()
+    doc.write('<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:8px;background:#000;color:#fff;font-family:monospace}</style></head><body>' + (data.html || '') + '</body></html>')
+    doc.close()
+
+    var manifest = await getManifest()
+    var key = 'main/' + hash
+    var scripts = manifest[key] || []
+    for (var i = 0; i < scripts.length; i++) {
+      var s = doc.createElement('script')
+      s.src = '/' + scripts[i]
+      doc.head.appendChild(s)
+      await new Promise(function(r) { s.onload = r; s.onerror = r })
+    }
+  } catch(e) {
+    console.error('[QRX iframe]', hash, e)
+  }
+}
 
 function setStatus(s) { status.textContent = s }
 
-/* Minimal IndexedDB helpers mirroring the kernel */
 function openDB(name, store) {
-  name = name || window.DB
-  store = store || window.FILES
+  name = name || 'main'
+  store = store || 'files'
   return new Promise(function(resolve, reject) {
     var req = indexedDB.open(name)
     req.onupgradeneeded = function(e) { e.target.result.createObjectStore(store) }
@@ -25,7 +86,7 @@ function openDB(name, store) {
 
 function dbGet(db, key) {
   return new Promise(function(resolve) {
-    var req = db.transaction(window.FILES, 'readonly').objectStore(window.FILES).get(key)
+    var req = db.transaction('files', 'readonly').objectStore('files').get(key)
     req.onsuccess = function(e) { resolve(e.target.result) }
     req.onerror = function() { resolve(undefined) }
   })
@@ -33,7 +94,7 @@ function dbGet(db, key) {
 
 function dbPut(db, key, value) {
   return new Promise(function(resolve, reject) {
-    var req = db.transaction(window.FILES, 'readwrite').objectStore(window.FILES).put(value, key)
+    var req = db.transaction('files', 'readwrite').objectStore('files').put(value, key)
     req.onsuccess = resolve
     req.onerror = reject
   })
@@ -41,7 +102,7 @@ function dbPut(db, key, value) {
 
 function dbGetAllKeys(db) {
   return new Promise(function(resolve) {
-    var req = db.transaction(window.FILES, 'readonly').objectStore(window.FILES).getAllKeys()
+    var req = db.transaction('files', 'readonly').objectStore('files').getAllKeys()
     req.onsuccess = function(e) { resolve(e.target.result) }
     req.onerror = function() { resolve([]) }
   })
@@ -55,7 +116,7 @@ async function getManifest() {
 }
 
 function loadScript(src) {
-  return new Promise(function(resolve, reject) {
+  return new Promise(function(resolve) {
     var s = document.createElement('script')
     s.src = src
     s.onload = resolve
@@ -64,14 +125,9 @@ function loadScript(src) {
   })
 }
 
-/* Seed IndexedDB from the data manifest — mirrors the static bootloader */
-async function seedIndexedDB() {
-  var manifest = await getManifest()
-  var allKeys = Object.keys(manifest)
-
-  /* Build ns → [keys] map */
+async function seedIndexedDB(manifest) {
   var nsMap = {}
-  allKeys.forEach(function(k) {
+  Object.keys(manifest).forEach(function(k) {
     var parts = k.split('/')
     var ns = parts[0]
     var key = parts.slice(1).join('/')
@@ -80,7 +136,6 @@ async function seedIndexedDB() {
     nsMap[ns].push(key)
   })
 
-  /* Also add keys that have no scripts (pure data files) from data/index.json */
   try {
     var idxRes = await fetch('/data/index.json')
     if (idxRes.ok) {
@@ -101,35 +156,31 @@ async function seedIndexedDB() {
   for (var ns in nsMap) {
     var db = await openDB(ns)
     var existingKeys = await dbGetAllKeys(db)
-
     for (var i = 0; i < nsMap[ns].length; i++) {
       var key = nsMap[ns][i]
       var exists = existingKeys.includes(key)
-
       if (key.startsWith('boot/') || key === currentHash) {
-        /* Fetch full content from static data files */
         try {
           var contentRes = await fetch('/data/' + ns + '/' + key)
           if (contentRes.ok) {
             var text = await contentRes.text()
             var localVal = exists ? await dbGet(db, key) : null
-            if (localVal !== text) {
-              await dbPut(db, key, text)
-            }
+            if (localVal !== text) await dbPut(db, key, text)
           }
         } catch(e) {}
       } else if (!exists) {
         await dbPut(db, key, '')
       }
     }
-
-    /* Store index.json in main db */
     if (ns === 'main') {
       var idxVal = nsMap[ns].map(function(k) { return ns + '/' + k })
       await dbPut(db, 'index.json', JSON.stringify(idxVal))
     }
   }
 }
+
+/* Rewrite iframe src: /main#bundle → /#bundle
+ * Devvit static server only knows index.html at root. */
 
 async function run() {
   var hash = location.hash.slice(1) || 'main'
@@ -141,10 +192,9 @@ async function run() {
   try {
     var manifest = await getManifest()
 
-    /* Seed IndexedDB on first run */
     if (!seeded) {
       setStatus('seeding...')
-      await seedIndexedDB()
+      await seedIndexedDB(manifest)
       seeded = true
     }
 
@@ -156,7 +206,6 @@ async function run() {
     var data = await res.json()
     A.innerHTML = data.html || ''
 
-    /* Load boot scripts first */
     var bootKeys = Object.keys(manifest).filter(function(k) { return k.includes('/boot/') })
     for (var b = 0; b < bootKeys.length; b++) {
       var bootScripts = manifest[bootKeys[b]] || []
@@ -165,7 +214,6 @@ async function run() {
       }
     }
 
-    /* Load scripts for this key */
     var key = 'main/' + name
     var scripts = manifest[key] || []
     for (var i = 0; i < scripts.length; i++) {

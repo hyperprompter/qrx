@@ -215,14 +215,20 @@ async function main() {
   }
   await writeFile(join(DIST_CLIENT, 'scripts/manifest.json'), JSON.stringify(manifest))
   console.log('  scripts/manifest.json written with ' + Object.keys(manifest).length + ' keys')
-  /* Copy thin client shell — replaces the kernel for Reddit.
-   * All execution happens server-side via /api/run.
-   * No eval, no new Function, no CSP issues. */
+
+
+  /* Copy thin client shell — replaces the kernel for Reddit. */
   await copyFile(join(__dirname, 'client.html'), join(DIST_CLIENT, 'index.html'))
   await copyFile(join(__dirname, 'client.js'), join(DIST_CLIENT, 'client.js'))
 
-  console.log(`  servers/reddit/client.html → dist/client/index.html`)
-  console.log(`  servers/reddit/client.js   → dist/client/client.js`)
+  /* Create /main/ etc so iframe paths like /main#bundle resolve correctly. */
+  const knownNs = [...new Set(Object.keys(bundle).map(k => k.split('/')[0]).filter(n => n !== 'cache'))]
+  for (const ns of knownNs) {
+    const src = await readFile(join(DIST_CLIENT, 'index.html'), 'utf-8')
+    await writeFile(join(DIST_CLIENT, ns), src)
+    console.log('  dist/client/' + ns + ' written (clone)')
+  }
+
   console.log(`\n  Ready for: devvit playtest r/YOUR_SUBREDDIT\n`)
 }
 
