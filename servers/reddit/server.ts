@@ -64,7 +64,13 @@ router.post('/api/run', async (req, res): Promise<void> => {
   res.json({ html, scripts: `scripts/${`${ns}/${hash}`.replace(/[^a-z0-9]/gi, '-')}`, ns, hash })
 })
 
-router.post('/internal/menu/create-post', async (_req, res): Promise<void> => {
+/* Returns the post's stored hash so client.js can boot into the right view.
+ * Returns null when not in a post context (e.g. local dev), client falls back to #main. */
+router.get('/api/post-context', async (_req, res): Promise<void> => {
+  res.json({ hash: (context.postData?.hash as string) || null })
+})
+
+router.post('/internal/menu/create-post', async (_req: express.Request, res: express.Response): Promise<void> => {
   res.json({
     showForm: {
       name: 'createPostForm',
@@ -79,6 +85,13 @@ router.post('/internal/menu/create-post', async (_req, res): Promise<void> => {
             label: 'Post title',
             required: true,
           },
+          {
+            type: 'string',
+            name: 'hash',
+            label: 'Hash (e.g. #paint or #paint?window=test)',
+            helpText: 'Must start with #. Leave blank to default to #main.',
+            required: false,
+          },
         ],
       },
     },
@@ -86,7 +99,12 @@ router.post('/internal/menu/create-post', async (_req, res): Promise<void> => {
 })
 
 router.post('/internal/form/create-post', async (req, res): Promise<void> => {
-  const { title } = req.body as { title: string }
+  const { title, hash } = req.body as { title: string; hash?: string }
+  const rawHash = (hash || '').trim()
+  if (rawHash && !rawHash.startsWith('#')) {
+    res.json({ showToast: { text: 'Hash must start with #', appearance: 'neutral' } } satisfies UiResponse)
+    return
+  }
   try {
     await reddit.submitCustomPost({
       title,
@@ -94,6 +112,7 @@ router.post('/internal/form/create-post', async (req, res): Promise<void> => {
       entry: 'default',
       runAs: 'USER',
       userGeneratedContent: { text: title },
+      postData: { hash: rawHash || '#main' },
     })
     res.json({ showToast: { text: 'QRX post created!', appearance: 'success' } } satisfies UiResponse)
   } catch (err) {

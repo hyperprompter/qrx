@@ -183,6 +183,20 @@ async function seedIndexedDB(manifest) {
  * Devvit static server only knows index.html at root. */
 
 async function run() {
+  /* If we're inside a Reddit post, check for a stored hash and apply it
+   * before the kernel boots. Falls back silently if not in a post context. */
+  if (!location.hash) {
+    try {
+      var ctxRes = await fetch('/api/post-context')
+      if (ctxRes.ok) {
+        var ctxData = await ctxRes.json()
+        if (ctxData.hash) {
+          location.hash = ctxData.hash
+        }
+      }
+    } catch(e) {}
+  }
+
   var hash = location.hash.slice(1) || 'main'
   var parts = hash.split('?')
   var name = parts[0]
