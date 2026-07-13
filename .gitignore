@@ -6,4 +6,5 @@ public/data/*
 data/*
 !data/main/
 !data/cache/
+!data/reddit/
 folder-structure.txt
