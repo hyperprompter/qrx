@@ -1,0 +1,33 @@
+#editor?e&w&p=TASK: output HTML wireframe for a live-preview markdown editor
+  - include SCRIPT and LINK tags to load Toast UI Editor from CDNs:
+    - https://uicdn.toast.com/editor/latest/toastui-editor.min.css
+    - https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js
+  - layout: full viewport height, display flex, flex-direction column, no margins
+  - components: status bar div at top with basic padding
+  - main area: div id "editor-container" (flex 1, overflow hidden)
+  - just HTML and CSS, no logic scripts
+  - dont include html/head/body tags just the wireframe
+&w&a=1&p=TASK: output a SCRIPT tag that initializes Toast UI Editor and adds autosaving
+  - read(), write(), and filename are globally available
+  - CRITICAL: Wrap logic in an init function. First check if (!window.toastui || !window.toastui.Editor) return setTimeout(init, 50);
+  - on load: call read(filename).then(function(v) { instantiate editor... })
+  - instantiate toastui.Editor on the editor-container div with height "100" + String.fromCharCode(37), initialEditType "wysiwyg", and initialValue v || ""
+  - assign the instance to window.editorInstance so future scripts can use it
+  - on input: window.editorInstance.on('change', ...) debounce then write(window.editorInstance.getMarkdown(), filename)
+  - listen for hashchange: call read(filename).then(function(v) { if(v && v !== window.editorInstance.getMarkdown()) window.editorInstance.setMarkdown(v); })
+  - use var for all variables (mutable state)
+&w&a=1&p=TASK: output a SCRIPT tag that adds statusbar features
+  - CRITICAL: Wrap logic in an init function. First check if (!window.editorInstance) return setTimeout(init, 50);
+  - listen for change events on window.editorInstance
+  - calculate character count window.editorInstance.getMarkdown().length
+  - calculate byte size new Blob([window.editorInstance.getMarkdown()]).size
+  - update innerText of the status div to show "Chars: X | Bytes: Y"
+  - use var for all variables
+&w&a=1&p=TASK: output a SCRIPT tag that reloads the editor when edited from another browser tab
+  - CRITICAL: Wrap logic in an init function. First check if (!window.editorInstance) return setTimeout(init, 50);
+  - use BroadcastChannel API with name 'qrx_editor'
+  - on window.editorInstance.on('change'): channel.postMessage({filename: filename})
+  - on message event: if event.data.filename == filename, call read(filename).then(function(v) { if(v && v !== window.editorInstance.getMarkdown()) window.editorInstance.setMarkdown(v) })
+  - ensure the status text updates after reload
+  - use var for all variables
+&w

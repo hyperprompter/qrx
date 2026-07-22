@@ -1,0 +1,52 @@
+#chat?e&w&p=TASK: output HTML wireframe for a chatbot
+  - components:
+    - header
+      - model details
+        - model name
+        - model host
+        - apikey (type=password)
+    - messages area (no placeholders)
+    - footer
+      - resizable textarea
+      - submit
+  - css: use flex so that the messages area fits the space between the header and footer
+  - no javascript
+  - dont include html/head/body tags just the wireframe
+&w&a=1&p=TASK: output a SCRIPT tag that populates the header details
+  - read the value of localStorage.getItem('m') and store it in the model name field
+  - do same for localStorage.getItem('h')
+  - and localStorage.getItem('k')
+  - do nothing else
+&w&a=1&c=src&p=TASK: output a SCRIPT tag that handles the actual chat
+  - the attached CONTEXT gives you clues on how to handle API calls
+  - reimplement the api call to the LLM (like in gen) using the values from the header inputs
+  - implement streaming mode (set stream to true and read chunks)
+  - strictly follow the standard openai schema as seen in gen, do NOT include any google specific edge cases
+  - create a hook system so that we can add context transformers just before the prompt is sent to the ai
+    - just use a global chatPlugins = {pluginName: {callback: function (currentPrompt, fullChat) {returns transformedText}}}
+    - create a plugin that console.logs the text before it's sent
+  - send the full chat + the users prompt as a single string (no need to send array of messages)
+  - send when user presses either CTRL+ENTER inside the textarea OR when they press submit button
+  - textarea is cleared upon submit
+  - textarea is resizable
+  - do not autoscroll the page
+&w&a=1&p=TASK: output a SCRIPT tag to add a new context transformer plugin
+  - window.DB is a global that contains the database table name
+  - create a RECURSIVE function to extract and replace `[[link]]`s
+  - pass a `visited = new Set()` and a `depth = 0` down the recursion to prevent infinite loops and cap recursion at depth <= 2 to avoid context explosion
+  - [[links]] can be in form table%23record assume the following:
+    - [[link]] === [[${DB}%23link]]; name === ${DB}
+    - [[%23link]] === [[${DB}%23link]]; name === ${DB}
+    - [[some%23link]] === [[some%23link]]; name === some
+  - use `read(link, name).then(context=>{})` to replace the [[link]] with the context
+    - wrap the context with "<context file="some%23link">...data...</context>"
+    - RECURSIVELY scan the fetched context for MORE [[links]] before returning the string
+  - console.log the link and the context for debugging
+  - return the fully transformed context including all deep nested links
+  - only extract [[links]] stemming from the current PROMPT not the whole chat history
+  - try...catch it, often the links wont exist yet; silently quiet those errors
+  - replace %23 with actual hash symbol
+  - be mindful of [object Promise] Promise.all() when doing async string replacement!!! DOUBLE CHECK YOU ARE CORRECTLY HANDLING PROMISES
+  - BE CAREFUL ABOUT PROMISES: fetch() read() etc ALL ARE PROMISES [object Promise] <--- BE EXTREMELY AWARE OF THIS
+  - [object Promise] keeps getting sent YOU MUST BE MINDFUL OF PROMISES!! BE HYPER AWARE OF PROMISES read() fetch() etc ALL MUST BE .then()
+&w

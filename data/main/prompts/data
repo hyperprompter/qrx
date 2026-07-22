@@ -1,0 +1,23 @@
+#data?e&w&p=TASK: output HTML wireframe for an indexeddb manager
+  - fields: filename input, export button, import button
+  - just HTML and CSS
+  - no javascript
+  - dont include html/head/body tags just the wireframe
+&w&a=1&p=TASK: output a SCRIPT tag that handles export button
+  - set the filename to "${DB}-YYMMDD-HHMM.gz"
+    - `DB` is a global variable accessible to you that contains the target database name
+    - replace YYMMDD-HHMM with current timestamp
+    - update the filename once a minute with latest timestamp
+  - when user clicks export button
+    - loop through each key in the indexeddb table
+    - create an export object with this EXACT schema {${DB}: {files: {${key}: value, ${key}: value,...}}}
+      - eg if DB == 'os' and 'key' == app then it would be "os.files.app" = value
+      - if DB == 'test' and 'key' == abc/123 then it would be "test.files.[abc/123]"
+      - "files" is hardcoded and must be present
+      - do not use arrays, map keys directly to values as a subgroup of the filename field
+    - compress as a gz with Compression Streams API
+    - download the file
+&w&a=1&p=TASK: output a SCRIPT tag that handles import button
+  - on import button click ask user for a .gz file to import
+  - import the keys into the "files" table of the ${DB}
+&w

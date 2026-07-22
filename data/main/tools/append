@@ -1,0 +1,1 @@
+var parts = INPUT.split('|'); if(parts.length < 2) return "Error format: namespace#file | text"; var filename = parts[0].trim(); var text = parts.slice(1).join('|').trim(); var existing = await read(filename) || ""; await write(filename, existing + "\n\n" + text); return "Appended to " + filename;

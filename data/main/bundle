@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IndexedDB Manager</title>
+    <style>
+        body { font-family: monospace; padding: 1rem; }
+        #control-panel { margin-bottom: 1rem; border-bottom: 1px solid #ccc; padding-bottom: 1rem; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .action-btn { margin-right: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="control-panel">
+    <label for="db-name-input">Database Name:</label>
+    <input type="text" id="db-name-input" value="test-db">
+    <button id="load-btn">Load</button>
+</div>
+
+<table id="records-table">
+    <thead>
+        <tr>
+            <th>Title</th>
+            <th><input type="checkbox" id="select-all-checkbox"></th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody id="records-body">
+        <!-- Template Row for visualization -->
+        <tr>
+            <td>Example Record</td>
+            <td><input type="checkbox" class="row-checkbox"></td>
+            <td>
+                <button class="action-btn edit-btn">Edit</button>
+                <button class="action-btn delete-btn">Delete</button>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+</body>
+</html><script>
+var recordsBody = document.getElementById('records-body');
+var dbInput = document.getElementById('db-name-input');
+var currentDB = (typeof DB !== 'undefined') ? DB : dbInput.value;
+dbInput.value = currentDB;
+
+var db;
+
+function renderRecords() {
+    recordsBody.innerHTML = '';
+    var request = indexedDB.open(currentDB);
+    
+    request.onsuccess = function(event) {
+        db = event.target.result;
+        var storeNames = db.objectStoreNames;
+        
+        for (var i = 0; i < storeNames.length; i++) {
+            var storeName = storeNames[i];
+            var tx = db.transaction(storeName, 'readonly');
+            var store = tx.objectStore(storeName);
+            var cursorRequest = store.openCursor();
+            
+            cursorRequest.onsuccess = function(e) {
+                var cursor = e.target.result;
+                if (cursor) {
+                    createRow(storeName, cursor.key, cursor.value);
+                    cursor.continue();
+                }
+            };
+        }
+    };
+}
+
+function createRow(storeName, key, value) {
+    var tr = document.createElement('tr');
+
+    // Title
+    var tdTitle = document.createElement('td');
+    var link = document.createElement('a');
+    link.href = '/' + currentDB + '#' + key;
+    link.target = '_blank';
+    link.textContent = key;
+    tdTitle.appendChild(link);
+    tr.appendChild(tdTitle);
+
+    // Checkbox
+    var tdCheck = document.createElement('td');
+    var checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'row-checkbox';
+    tdCheck.appendChild(checkbox);
+    tr.appendChild(tdCheck);
+
+    // Actions
+    var tdActions = document.createElement('td');
+
+    // Rename
+    var btnRename = document.createElement('button');
+    btnRename.className = 'action-btn';
+    btnRename.textContent = 'Rename';
+    btnRename.onclick = function() {
+        var newName = prompt('New Name:', key);
+        if (newName && newName !== key) {
+            var tx = db.transaction(storeName, 'readwrite');
+            var store = tx.objectStore(storeName);
+            store.get(key).onsuccess = function(e) {
+                var val = e.target.result;
+                store.put(val, newName);
+                store.delete(key);
+                tx.oncomplete = renderRecords;
+            };
+        }
+    };
+    tdActions.appendChild(btnRename);
+
+    // Copy
+    var btnCopy = document.createElement('button');
+    btnCopy.className = 'action-btn';
+    btnCopy.textContent = 'Copy';
+    btnCopy.onclick = function() {
+        var newName = prompt('New Name:', key);
+        if (newName) {
+            var tx = db.transaction(storeName, 'readwrite');
+            var store = tx.objectStore(storeName);
+            store.get(key).onsuccess = function(e) {
+                var val = e.target.result;
+                store.put(val, newName);
+                tx.oncomplete = renderRecords;
+            };
+        }
+    };
+    tdActions.appendChild(btnCopy);
+
+    // Delete
+    var btnDelete = document.createElement('button');
+    btnDelete.className = 'action-btn';
+    btnDelete.textContent = 'Delete';
+    btnDelete.onclick = function() {
+        if (confirm('Delete record "' + key + '"?')) {
+            var tx = db.transaction(storeName, 'readwrite');
+            var store = tx.objectStore(storeName);
+            store.delete(key);
+            tx.oncomplete = renderRecords;
+        }
+    };
+    tdActions.appendChild(btnDelete);
+
+    tr.appendChild(tdActions);
+    recordsBody.appendChild(tr);
+}
+
+document.getElementById('load-btn').onclick = function() {
+    currentDB = dbInput.value;
+    renderRecords();
+};
+
+renderRecords();
+</script><script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script>
+var selectAllBox = document.getElementById('select-all-checkbox');
+var controlPanel = document.getElementById('control-panel');
+var zipBtn = document.createElement('button');
+zipBtn.innerText = 'Build .zip';
+zipBtn.style.marginLeft = '1rem';
+controlPanel.appendChild(zipBtn);
+
+// Capture original function and augment to attach data to DOM elements
+var baseCreateRow = createRow;
+createRow = function(storeName, key, value) {
+    baseCreateRow(storeName, key, value);
+    // The row was just appended to recordsBody
+    var row = recordsBody.lastElementChild;
+    var cb = row.querySelector('.row-checkbox');
+    // Store metadata for the zip process
+    cb.dataset.store = storeName;
+    // Store raw key as property to preserve type (int vs string)
+    cb._key = key;
+};
+
+// Re-render to ensure DOM has metadata
+renderRecords();
+
+// Header checkbox handler
+selectAllBox.onchange = function() {
+    var boxes = document.querySelectorAll('.row-checkbox');
+    for (var i = 0; i < boxes.length; i++) {
+        boxes[i].checked = selectAllBox.checked;
+    }
+};
+
+// Zip generation logic
+zipBtn.onclick = function() {
+    var checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
+    if (checkedBoxes.length === 0) return alert('No records selected');
+
+    var zip = new JSZip();
+    var indexKeys = [];
+    var pending = checkedBoxes.length;
+
+    function finalize() {
+        zip.file('index.json', JSON.stringify(indexKeys));
+        
+        var date = new Date();
+        var yy = date.getFullYear().toString().substr(2,2);
+        var mm = ('0'+(date.getMonth()+1)).slice(-2);
+        var dd = ('0'+date.getDate()).slice(-2);
+        var hh = ('0'+date.getHours()).slice(-2);
+        var min = ('0'+date.getMinutes()).slice(-2);
+        var filename = currentDB + '-' + yy + mm + dd + '-' + hh + min + '.zip';
+
+        zip.generateAsync({type:"blob"}).then(function(content) {
+            var link = document.createElement("a");
+            link.href = URL.createObjectURL(content);
+            link.download = filename;
+            link.click();
+        });
+    }
+
+    for (var i = 0; i < checkedBoxes.length; i++) {
+        (function(box){
+            var storeName = box.dataset.store;
+            var key = box._key;
+            
+            indexKeys.push(key);
+
+            var tx = db.transaction(storeName, 'readonly');
+            var store = tx.objectStore(storeName);
+            var req = store.get(key);
+
+            req.onsuccess = function(e) {
+                var val = e.target.result;
+                // Convert non-blob objects to JSON strings
+                if (typeof val === 'object' && !(val instanceof Blob)) {
+                    val = JSON.stringify(val);
+                }
+                zip.file(String(key), val);
+                
+                pending--;
+                if (pending === 0) finalize();
+            };
+            
+            req.onerror = function() {
+                console.error('Error zipping key:', key);
+                pending--;
+                if (pending === 0) finalize();
+            };
+        })(checkedBoxes[i]);
+    }
+};
+</script>

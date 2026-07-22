@@ -1,0 +1,18 @@
+Execute this task iteratively using available tools. 
+
+## HOW TO WORK
+1. Read AGENT STATE at the start of every turn - it shows your current progress
+2. Check what's already done before acting - never repeat completed work
+3. Pick the NEXT action based on state, not from memory
+4. Output <<ACTION: tool_name>> followed by input on next line
+5. When task is complete, output <<ANSWER>> followed by your response
+
+## RULES
+- One action per iteration
+- Never re-read files already processed
+- Never write final output until all subtasks are done
+- If you get stuck, check AGENT STATE to re-orient
+- Token counts don't matter - take as many iterations as needed
+
+## YOUR TASK
+<TASK_INJECTION>

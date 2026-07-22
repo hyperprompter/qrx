@@ -1,0 +1,73 @@
+if(window._bootSync)return;window._bootSync=true;
+(async function(){
+const _FOG_URL = localStorage.getItem('FOG_URL') || (location.protocol === 'http:' ? location.protocol + '//' + location.hostname + ':3000' : location.origin);
+const _SYNC_KEY = localStorage.getItem('SYNC_KEY');
+const _CLIENT_ID = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+window.FOG_URL = _FOG_URL;
+window.SYNC_KEY = _SYNC_KEY;
+window.CLIENT_ID = _CLIENT_ID;
+
+const _origWrite = window.write;
+const _origRead = window.read;
+
+window.write = async function(v, k, d, n) {
+  const current = await _origRead(k, d);
+  if (current === v) return;
+  const result = await _origWrite(v, k, d, n);
+  if (window.FOG_URL) {
+    const ns = (d && d.name) ? d.name : (d && typeof d === 'string' ? d : window.DB);
+    const key = k || window.filename;
+    try {
+      await fetch(window.FOG_URL + '/write', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': window.SYNC_KEY
+        },
+        body: JSON.stringify({ namespace: ns, key: key, value: v, clientId: window.CLIENT_ID })
+      });
+    } catch(e) {}
+  }
+  return result;
+};
+
+window.read = async function(k, d) {
+  if (window.FOG_URL) {
+    const ns = (d && d.name) ? d.name : (d && typeof d === 'string' ? d : window.DB);
+    const key = k || window.filename;
+    try {
+      const res = await fetch(window.FOG_URL + '/read', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': window.SYNC_KEY
+        },
+        body: JSON.stringify({ namespace: ns, key: key })
+      });
+      const json = await res.json();
+      const val = json.value;
+      if (val !== undefined && val !== null) {
+        if (typeof val === 'string' && val.length > 0) {
+          await _origWrite(val, k, d);
+          return val;
+        }
+        return await _origRead(k, d);
+      }
+    } catch(e) {}
+  }
+  return await _origRead(k, d);
+};
+})();if(window._syncBus)return;window._syncBus=true;
+(function(){
+if(!window.syncBus)window.syncBus=new BroadcastChannel('qrx_sync');
+window.syncBus.onmessage=function(e){
+if(e.data&&e.data.namespace===window.DB&&e.data.key===window.filename&&e.data.clientId!==window.CLIENT_ID){run();}
+};
+if(window===window.top&&!window.top.qrx_sse){
+window.top.qrx_sse=true;
+var es=new EventSource(window.FOG_URL+'/stream?auth='+window.SYNC_KEY);
+es.onmessage=function(e){
+try{var d=JSON.parse(e.data);window.syncBus.postMessage(d);}catch(err){}
+};
+}
+})();

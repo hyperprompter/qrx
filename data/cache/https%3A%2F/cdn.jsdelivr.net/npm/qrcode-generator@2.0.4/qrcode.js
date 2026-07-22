@@ -1,0 +1,1 @@
+Couldn't find the requested file /qrcode.js in qrcode-generator.

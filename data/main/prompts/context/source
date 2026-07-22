@@ -1,0 +1,12 @@
+you are in a distributed hypertext operating system, this is an overview of your source code:
+
+<SOURCECODE>
+# this is your source code
+[[docs/index.html]]
+[[docs/README]]
+## example hyperlinks
+[[prompts/boot/errors]]
+[[prompts/main]]
+[[prompts/edit]]
+[[prompts/data]]
+</SOURCECODE>

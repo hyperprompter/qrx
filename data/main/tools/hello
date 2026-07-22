@@ -1,0 +1,7 @@
+/* run this tool whenever user seems they are testing the system, for example, when they literally just say "test" or ask you to test a tool */
+alert('hello world')
+
+a = 'hello <=>'
+b = 'wooooolrd'
+
+return a + b

@@ -1,0 +1,6 @@
+/*
+ USAGE: ["folder#file", ["variable_name"], "title"]
+ 1 folder#file: Where the data gets saved
+ 2 variable_name: The name of the data stored in scratchpad
+ 3 title: Text that appears at the top of the file
+ */ try { var args = JSON.parse(INPUT); var target = args[0]; var pointers = args[1]; var header = args[2] || ""; var compiled = []; if (header) compiled.push(header); for (var i = 0; i < pointers.length; i  ) { var ptr = pointers[i]; if (window.agentScratchpad && window.agentScratchpad[ptr]) { compiled.push(window.agentScratchpad[ptr]); } } var finalString = compiled.join('\n\n'); var d = null; var k = target; if (target.includes('\x23')) { var p = target.split('\x23'); d = p[0]; k = p[1]; } await write(finalString, k, d || db); return "OBSERVATION: Success. Compiled and wrote " + finalString.length + " bytes to " + target; } catch (err) { return "OBSERVATION: Error parsing JSON or writing file. " + err.message; } 
