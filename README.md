@@ -251,4 +251,5 @@ Because `?x` evaluates dynamically via `new Function` without an `async` wrapper
 # Further Reading
 
 - [Deploying to Reddit (Devvit)](./docs/deploy/reddit.md) — how to create a Reddit app, install the CLI, and publish QRX as a Devvit post
+  - the full Devvit API is documented in [./docs/reddit/llms-full.txt](./docs/reddit/llms-full.txt)
 - [Devvit CSP Workarounds](./docs/deploy/devvit-csp-workarounds.md) — how a dynamic JS runtime survives inside Reddit's sandboxed webview
