@@ -8,6 +8,10 @@
 
 This qr encodes an html file turning any browser since the 1990s into an offline-first generative REPL to prompt and vibe code. It does this by reimagining the browser's local storage as a file system composed from hyperlinks that functions as a prompt chaining interface 
 
+<div align=center>
+  <img width="583" height="680" alt="559856767-e2e48f53-5b27-4b64-aa1e-b049219df9da" src="https://github.com/user-attachments/assets/6cd2995e-1bd7-4b62-a50e-f174b6015d78" />
+</div>
+
 -----------------------------
 
 # Core flags
@@ -25,6 +29,10 @@ The above Kernel exposes the following URL `?query` params
 | **`p`** | **Prompt**. Sends the current context + accumulator + value to the LLM. The result becomes the new accumulator. |
 | **`w`** | **Write**. Saves the current accumulator content to the database under the name defined by `f`. |
 | **`x`** | **Execute**. Runs the value (or the current accumulator if value is empty) as JavaScript. |
+
+<div align=center>
+  <img width="1080" height="813" alt="towards-a-teleology-of-hypertext-welcome-to-r-v0-suslk89wrg8h1" src="https://github.com/user-attachments/assets/998d82c6-e366-4c06-89b8-ce43b449a5da" />
+</div>
 
 # Globals
 The kernel exposes the following variables and methods
@@ -50,6 +58,10 @@ The kernel exposes the following variables and methods
 | **`keys([q], [d])`** | **List Files**. Returns an array of all keys (filenames) in the database. `q` is an optional `IDBKeyRange` |
 | **`getDB([n])`** | **Database Access**. Returns the IndexedDB instance for name `n`. Defaults to the current active database |
 | **`run()`** | **Re-Run Tape**. Manually triggers the URL parsing loop. Useful if hash state changes programmatically without a reload |
+
+<div align=center>
+  <img width="1916" height="961" alt="Screenshot_2026-06-23_260702" src="https://github.com/user-attachments/assets/ea50565f-e334-48b9-8ced-54eed1029d04" />
+</div>
 
 -----------------------------
 
@@ -100,6 +112,10 @@ The bootloader runs on every page load, after the kernel has initialized its DB 
 - Stubs all other known keys as empty strings so they appear in key listings without triggering a full fetch
 - If `SYNC_KEY` is set in `localStorage`, repeats the above for `data/index.private.json` — fetching and syncing private namespace content the same way
 - Reloads the page on first boot or whenever synced content has changed, so the kernel always starts with a consistent local state
+
+<div align=center>
+  <img width="400" height="225" alt="559857186-2b1b043a-e416-4a56-974f-341eec92e629" src="https://github.com/user-attachments/assets/63c8c8b1-a24c-44cc-b91e-5ad1601279aa" />
+</div>
 
 -----------------------------
 
@@ -229,6 +245,9 @@ QRx registers as a Progressive Web App on first load. The service worker (genera
 
 The PWA manifest and SW registration script are injected into `<head>` during the build's bootloader injection step rather than by VitePWA's normal pipeline, because the kernel HTML has no document structure until that final wrap. The QR code is generated before this step so the PWA overhead doesn't count against the 2953 byte QR-L cap.
 
+<div align=center>
+  <img width="702" height="932" alt="PXL_20260518_184130243~2" src="https://github.com/user-attachments/assets/d5f0799f-f6f9-44ef-a6c2-ebe7943feb10" />
+</div>
 
 -----------------------------
 
@@ -244,8 +263,6 @@ Instead, you can save your system prompt as a standard text file in your databas
 Because `?x` evaluates dynamically via `new Function` without an `async` wrapper, using the native Promise `.then()` chain successfully prevents top-level `await` syntax errors. This permanently sets your operating system's behavioral framework securely behind the scenes.
 
 
-------------------------------
-
 -----------------------------
 
 # Further Reading
@@ -253,3 +270,7 @@ Because `?x` evaluates dynamically via `new Function` without an `async` wrapper
 - [Deploying to Reddit (Devvit)](./docs/deploy/reddit.md) — how to create a Reddit app, install the CLI, and publish QRX as a Devvit post
   - the full Devvit API is documented in [./docs/reddit/llms-full.txt](./docs/reddit/llms-full.txt)
 - [Devvit CSP Workarounds](./docs/deploy/devvit-csp-workarounds.md) — how a dynamic JS runtime survives inside Reddit's sandboxed webview
+
+
+
+<img width="4061" height="3057" alt="PXL_20260519_151947632~3" src="https://github.com/user-attachments/assets/a59d2f3c-3948-4483-aea2-ae56095af335" />
