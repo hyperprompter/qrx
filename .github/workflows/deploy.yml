@@ -30,7 +30,7 @@ jobs:
 
       - name: Build for GitHub Pages
         env:
-          BASE_URL: /qrx/
+          BASE_URL: /
           # Add any public namespaces here — mirrors your .env QRX_PUBLIC_NAMESPACES
           QRX_PUBLIC_NAMESPACES: main
         run: npm run build:github
