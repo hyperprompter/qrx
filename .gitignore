@@ -8,3 +8,4 @@ data/*
 !data/cache/
 !data/reddit/
 folder-structure.txt
+context.txt

@@ -1,0 +1,18 @@
+/home/qrx/git/qrx
+├── LICENSE
+├── README.md
+├── TEMPLATE.env
+├── cli.sh
+├── devvit.json
+├── docs
+├── folder-structure.txt
+├── index.html
+├── package-lock.json
+├── package.json
+├── server.js
+├── servers
+└── vite.config.js
+
+directory: 2 file: 11
+
+ignored: directory (4)
