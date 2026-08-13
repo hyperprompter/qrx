@@ -226,7 +226,7 @@ button#pause-btn:hover {
   height: 100%;
   overflow: hidden;
   z-index: 5;
-  position: relative;
+  position: absolute;
 }
 
 .sidebar-header {
@@ -283,7 +283,7 @@ button#pause-btn:hover {
   border-radius: var(--radius-md);
   border: 1px solid var(--border-medium);
   overflow: hidden;
-  position: relative;
+  position: absolute;
   box-shadow: 0 8px 32px rgba(0,0,0,0.45);
   transition: none;
 }
@@ -430,7 +430,7 @@ button#pause-btn:hover {
         <label>Keywords</label>
         <input type="text" id="keyword-input" value="grants" placeholder="keywords or trends..." />
         <label>Posts</label>
-        <input type="number" id="post-count" value="25" />
+        <input type="number" id="post-count" value="10" />
         <span id="status">Idle</span>
       </div>
       <div class="controls-group">
@@ -510,8 +510,8 @@ window.loadData = async function(keyword, count) {
   var target = parseInt(count) || 25;
 
   while (collectedPosts.length < target) {
-    var url = "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=" + encodeURIComponent(keyword) + "&limit=" + limit + "&sort=latest";
-    if (cursor) {
+    var since = new Date(Date.now() - 3*24*60*60*1000).toISOString();
+    var url = "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=" + encodeURIComponent(keyword) + "&limit=" + limit + "&sort=top&since=" + encodeURIComponent(since);    if (cursor) {
       url = url + "&cursor=" + encodeURIComponent(cursor);
     }
     var res = await fetch(url);
@@ -795,7 +795,7 @@ requestAnimationFrame(draw);
 window.addEventListener("data:loaded", function(e) {
   var particles = e.detail;
   window.particles = particles;
-  var worldSize = 2000;
+  var worldSize = 5000;
   var halfWorld = worldSize / 2;
   var centers = {};
   var rootPositions = [];
@@ -872,209 +872,6 @@ if (keywordInput) {
 var initialKeyword = keywordInput ? keywordInput.value.trim() : "grants";
 var initialCount = postCountInput ? postCountInput.value : 25;
 window.loadData(initialKeyword, initialCount);
-</script> <script>
-(function(){
-  window.paused = false;
-  var pauseBtn = document.getElementById("pause-btn");
-  if (pauseBtn) {
-    pauseBtn.addEventListener("click", function(){
-      window.paused = !window.paused;
-      pauseBtn.textContent = window.paused ? "▶ Play" : "⏸ Pause";
-    });
-  }
-
-  var types = ["post","thread","reply","like","repost","quote"];
-  window.forceMatrix = {};
-  for (var ti = 0; ti < types.length; ti++) {
-    var t1 = types[ti];
-    window.forceMatrix[t1] = {};
-    for (var tj = 0; tj < types.length; tj++) {
-      var t2 = types[tj];
-      window.forceMatrix[t1][t2] = Math.random() * 2 - 1;
-    }
-  }
-
-  var INTERACTION_RADIUS = 200;
-  var RADIUS_SQ = INTERACTION_RADIUS * INTERACTION_RADIUS;
-  var MIN_DIST_SQ = 100;
-  var DAMPING = 0.95;
-  var MAX_SPEED = 8;
-  var MAX_SPEED_SQ = MAX_SPEED * MAX_SPEED;
-  var ROOT_ATTRACTION = 0.0005;
-  var LIKE_BOOST_PER_LIKE = 0.02;
-  var LIKE_BOOST_MAX = 3.0;
-
-  var influenceBase = {post:1, thread:0.7, reply:0.7, like:0.2, repost:0.4, quote:0.4};
-  var likeCounts = {};
-  var rootPositions = {};
-  var influenceMap = [];
-
-  function updateMetaData(){
-    var parts = window.particles;
-    if (!parts) parts = [];
-    likeCounts = {};
-    rootPositions = {};
-    influenceMap = new Array(parts.length);
-    var i, p;
-    for (i = 0; i < parts.length; i++) {
-      p = parts[i];
-      if (p.type === "post") {
-        likeCounts[p.uri] = 0;
-        rootPositions[p.uri] = {x: p.x, y: p.y};
-      }
-    }
-    for (i = 0; i < parts.length; i++) {
-      p = parts[i];
-      if (p.type === "like" && p.root && likeCounts.hasOwnProperty(p.root)) {
-        likeCounts[p.root]++;
-      }
-    }
-    for (i = 0; i < parts.length; i++) {
-      p = parts[i];
-      var base = influenceBase[p.type] !== undefined ? influenceBase[p.type] : 0.2;
-      if (p.type === "post") {
-        var likes = likeCounts[p.uri] || 0;
-        var boost = likes * LIKE_BOOST_PER_LIKE;
-        if (boost > LIKE_BOOST_MAX) boost = LIKE_BOOST_MAX;
-        base += boost;
-      }
-      influenceMap[i] = base;
-    }
-  }
-
-  window.addEventListener("data:loaded", function(e){
-    updateMetaData();
-  });
-
-  var grid = new Map();
-
-  function simulate(){
-    var particles = window.particles;
-    if (!particles || particles.length === 0) {
-      requestAnimationFrame(simulate);
-      return;
-    }
-
-    if (!window.paused) {
-      grid.clear();
-      var i, p, cx, cy, key, cell;
-      for (i = 0; i < particles.length; i++) {
-        p = particles[i];
-        if (typeof p.x !== "number" || typeof p.y !== "number") continue;
-        cx = Math.floor(p.x / INTERACTION_RADIUS);
-        cy = Math.floor(p.y / INTERACTION_RADIUS);
-        key = cx + ":" + cy;
-        cell = grid.get(key);
-        if (!cell) {
-          cell = [];
-          grid.set(key, cell);
-        }
-        cell.push(i);
-      }
-
-      for (i = 0; i < particles.length; i++) {
-        p = particles[i];
-        if (typeof p.vx !== "number") p.vx = 0;
-        if (typeof p.vy !== "number") p.vy = 0;
-      }
-
-      var cellKeys = [];
-      grid.forEach(function(v, k){
-        cellKeys.push(k);
-      });
-
-      var k, a, j, b, dx, dy, pi, pj, dxp, dyp, distSq, falloff, strength, infI, infJ, baseStr, invDistSq, fx, fy, txi, matRow, nKey, nCell, colonIdx, ccx, ccy;
-      for (k = 0; k < cellKeys.length; k++) {
-        key = cellKeys[k];
-        cell = grid.get(key);
-        if (!cell) continue;
-        colonIdx = key.indexOf(':');
-        ccx = parseInt(key.substring(0, colonIdx), 10);
-        ccy = parseInt(key.substring(colonIdx + 1), 10);
-        for (a = 0; a < cell.length; a++) {
-          i = cell[a];
-          pi = particles[i];
-          txi = pi.type;
-          infI = influenceMap[i];
-          if (infI === undefined || infI === null) infI = 0.2;
-          matRow = window.forceMatrix[txi];
-          if (!matRow) matRow = {};
-          for (dx = -1; dx <= 1; dx++) {
-            for (dy = -1; dy <= 1; dy++) {
-              nKey = (ccx + dx) + ":" + (ccy + dy);
-              nCell = grid.get(nKey);
-              if (!nCell) continue;
-              for (b = 0; b < nCell.length; b++) {
-                j = nCell[b];
-                if (j <= i) continue;
-                pj = particles[j];
-                dxp = pj.x - pi.x;
-                dyp = pj.y - pi.y;
-                distSq = dxp * dxp + dyp * dyp;
-                if (distSq > RADIUS_SQ) continue;
-                if (distSq < MIN_DIST_SQ) distSq = MIN_DIST_SQ;
-                falloff = 1 - distSq / RADIUS_SQ;
-                if (falloff <= 0) continue;
-                strength = matRow[pj.type];
-                if (strength === undefined || strength === null) strength = 0;
-                infJ = influenceMap[j];
-                if (infJ === undefined || infJ === null) infJ = 0.2;
-                baseStr = strength * infI * infJ;
-                invDistSq = 1 / distSq;
-                fx = baseStr * falloff * dxp * invDistSq;
-                fy = baseStr * falloff * dyp * invDistSq;
-                pi.vx += fx;
-                pi.vy += fy;
-                pj.vx -= fx;
-                pj.vy -= fy;
-              }
-            }
-          }
-        }
-      }
-
-      var rdx, rdy, rPos;
-      for (i = 0; i < particles.length; i++) {
-        p = particles[i];
-        if (p.type === "post") continue;
-        rPos = rootPositions[p.root];
-        if (!rPos) continue;
-        rdx = rPos.x - p.x;
-        rdy = rPos.y - p.y;
-        p.vx += rdx * ROOT_ATTRACTION;
-        p.vy += rdy * ROOT_ATTRACTION;
-      }
-
-      var vSq, scale;
-      for (i = 0; i < particles.length; i++) {
-        p = particles[i];
-        p.vx *= DAMPING;
-        p.vy *= DAMPING;
-        vSq = p.vx * p.vx + p.vy * p.vy;
-        if (vSq > MAX_SPEED_SQ) {
-          scale = MAX_SPEED / Math.sqrt(vSq);
-          p.vx *= scale;
-          p.vy *= scale;
-        }
-        p.x += p.vx;
-        p.y += p.vy;
-      }
-
-      for (i = 0; i < particles.length; i++) {
-        p = particles[i];
-        if (p.type === "post" && rootPositions[p.uri]) {
-          rootPositions[p.uri].x = p.x;
-          rootPositions[p.uri].y = p.y;
-        }
-      }
-    }
-
-    requestAnimationFrame(simulate);
-  }
-
-  simulate();
-  updateMetaData();
-})();
 </script> <script>
 (function(){
   var canvas = document.getElementById("sim-canvas");
@@ -1250,5 +1047,639 @@ window.loadData(initialKeyword, initialCount);
   }
 
   requestAnimationFrame(renderHighlight);
+})();
+</script><script>
+(function(){
+  var canvas = document.getElementById("sim-canvas");
+  if (!canvas) return;
+  var minZoom = 0.1;
+  var maxZoom = 5.0;
+  var zoomSensitivity = 0.001;
+
+  var isDragging = false;
+  var lastMouseX = 0;
+  var lastMouseY = 0;
+
+  var isTouchPanning = false;
+  var isTouchPinching = false;
+  var touchStartDist = 0;
+  var touchStartZoom = 1;
+  var touchLastX = 0;
+  var touchLastY = 0;
+
+  function clampZoom(z) {
+    if (z < minZoom) return minZoom;
+    if (z > maxZoom) return maxZoom;
+    return z;
+  }
+
+  canvas.addEventListener("wheel", function(e) {
+    e.preventDefault();
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var cw = canvas.width;
+    var ch = canvas.height;
+    var worldX = (mx - cw * 0.5) / window.cam.zoom + window.cam.x;
+    var worldY = (my - ch * 0.5) / window.cam.zoom + window.cam.y;
+    var newZoom = clampZoom(window.cam.zoom * (1 - e.deltaY * zoomSensitivity));
+    window.cam.x = worldX - (mx - cw * 0.5) / newZoom;
+    window.cam.y = worldY - (my - ch * 0.5) / newZoom;
+    window.cam.zoom = newZoom;
+  }, { passive: false });
+
+  canvas.addEventListener("mousedown", function(e) {
+    isDragging = true;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+  });
+
+  window.addEventListener("mouseup", function() {
+    isDragging = false;
+  });
+
+  canvas.addEventListener("mouseleave", function() {
+    isDragging = false;
+  });
+
+  canvas.addEventListener("mousemove", function(e) {
+    if (!isDragging) return;
+    var dx = e.clientX - lastMouseX;
+    var dy = e.clientY - lastMouseY;
+    window.cam.x -= dx / window.cam.zoom;
+    window.cam.y -= dy / window.cam.zoom;
+    lastMouseX = e.clientX;
+    lastMouseY = e.clientY;
+  });
+
+  canvas.addEventListener("touchstart", function(e) {
+    if (e.touches.length === 1) {
+      isTouchPanning = true;
+      isTouchPinching = false;
+      touchLastX = e.touches[0].clientX;
+      touchLastY = e.touches[0].clientY;
+    } else if (e.touches.length === 2) {
+      isTouchPinching = true;
+      isTouchPanning = false;
+      var ddx = e.touches[0].clientX - e.touches[1].clientX;
+      var ddy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStartDist = Math.sqrt(ddx * ddx + ddy * ddy);
+      if (touchStartDist === 0) touchStartDist = 1;
+      touchStartZoom = window.cam.zoom;
+    }
+  }, { passive: false });
+
+  canvas.addEventListener("touchmove", function(e) {
+    e.preventDefault();
+    if (isTouchPanning && e.touches.length === 1) {
+      var tx = e.touches[0].clientX;
+      var ty = e.touches[0].clientY;
+      var dx = tx - touchLastX;
+      var dy = ty - touchLastY;
+      window.cam.x -= dx / window.cam.zoom;
+      window.cam.y -= dy / window.cam.zoom;
+      touchLastX = tx;
+      touchLastY = ty;
+    } else if (isTouchPinching && e.touches.length === 2) {
+      var t0 = e.touches[0];
+      var t1 = e.touches[1];
+      var ddx = t0.clientX - t1.clientX;
+      var ddy = t0.clientY - t1.clientY;
+      var dist = Math.sqrt(ddx * ddx + ddy * ddy);
+      var newZoom = clampZoom(touchStartZoom * (dist / touchStartDist));
+      var mx = (t0.clientX + t1.clientX) * 0.5;
+      var my = (t0.clientY + t1.clientY) * 0.5;
+      var rect = canvas.getBoundingClientRect();
+      var sx = mx - rect.left;
+      var sy = my - rect.top;
+      var cw = canvas.width;
+      var ch = canvas.height;
+      var worldX = (sx - cw * 0.5) / window.cam.zoom + window.cam.x;
+      var worldY = (sy - ch * 0.5) / window.cam.zoom + window.cam.y;
+      window.cam.x = worldX - (sx - cw * 0.5) / newZoom;
+      window.cam.y = worldY - (sy - ch * 0.5) / newZoom;
+      window.cam.zoom = newZoom;
+    }
+  }, { passive: false });
+
+  canvas.addEventListener("touchend", function(e) {
+    if (e.touches.length === 0) {
+      isTouchPanning = false;
+      isTouchPinching = false;
+    } else if (e.touches.length === 1) {
+      isTouchPinching = false;
+      isTouchPanning = true;
+      touchLastX = e.touches[0].clientX;
+      touchLastY = e.touches[0].clientY;
+    }
+  });
+
+  canvas.addEventListener("touchcancel", function(e) {
+    isTouchPanning = false;
+    isTouchPinching = false;
+  });
+})();
+</script> <script>
+(function() {
+  window.paused = false;
+  var pauseBtn = document.getElementById("pause-btn");
+  if (pauseBtn) {
+    pauseBtn.addEventListener("click", function() {
+      window.paused = !window.paused;
+      pauseBtn.textContent = window.paused ? "▶ Play" : "⏸ Pause";
+    });
+  }
+
+  var types = ["post", "thread", "reply", "like", "repost", "quote"];
+  window.forceMatrix = {};
+  for (var i = 0; i < types.length; i++) {
+    var t1 = types[i];
+    window.forceMatrix[t1] = {};
+    for (var j = 0; j < types.length; j++) {
+      var t2 = types[j];
+      window.forceMatrix[t1][t2] = Math.random() * 2 - 1;
+    }
+  }
+
+  var canvasEl = document.getElementById("sim-canvas");
+  var cw = canvasEl ? (canvasEl.clientWidth || window.innerWidth) : window.innerWidth;
+  var ch = canvasEl ? (canvasEl.clientHeight || window.innerHeight) : window.innerHeight;
+
+  window.simConfig = {
+    interactionRadius: 0.15 * Math.min(cw, ch),
+    damping: 0.9,
+    maxSpeed: 8,
+    rootAttraction: 0.0005,
+    likeBoostPerLike: 0.02,
+    likeBoostMax: 3,
+    influenceBase: {
+      post: 1,
+      thread: 0.7,
+      reply: 0.7,
+      quote: 0.4,
+      repost: 0.4,
+      like: 0.2
+    }
+  };
+
+  function step() {
+    var particles = window.particles || [];
+    var count = particles.length;
+    if (!window.paused && count > 0 && window.simConfig.interactionRadius > 0) {
+      var likeCounts = {};
+      for (var i = 0; i < count; i++) {
+        var p = particles[i];
+        if (p.type === "like" && p.root) {
+          likeCounts[p.root] = (likeCounts[p.root] || 0) + 1;
+        }
+      }
+
+      var influences = new Array(count);
+      for (var i = 0; i < count; i++) {
+        var p = particles[i];
+        var base = window.simConfig.influenceBase[p.type] || 0;
+        if (p.type === "post" && p.uri) {
+          var likes = likeCounts[p.uri] || 0;
+          var boost = likes * window.simConfig.likeBoostPerLike;
+          if (boost > window.simConfig.likeBoostMax) boost = window.simConfig.likeBoostMax;
+          base += boost;
+        }
+        influences[i] = base;
+      }
+
+      var grid = {};
+      for (var i = 0; i < count; i++) {
+        var p = particles[i];
+        var cx = Math.floor(p.x / window.simConfig.interactionRadius);
+        var cy = Math.floor(p.y / window.simConfig.interactionRadius);
+        var key = cx + "," + cy;
+        if (!grid[key]) grid[key] = [];
+        grid[key].push(i);
+      }
+
+      for (var i = 0; i < count; i++) {
+        var pi = particles[i];
+        if (typeof pi.x !== "number" || typeof pi.y !== "number") continue;
+        var cxi = Math.floor(pi.x / window.simConfig.interactionRadius);
+        var cyi = Math.floor(pi.y / window.simConfig.interactionRadius);
+        for (var ox = -1; ox <= 1; ox++) {
+          for (var oy = -1; oy <= 1; oy++) {
+            var key = (cxi + ox) + "," + (cyi + oy);
+            var cell = grid[key];
+            if (!cell) continue;
+            for (var c = 0; c < cell.length; c++) {
+              var j = cell[c];
+              if (j <= i) continue;
+              var pj = particles[j];
+              if (typeof pj.x !== "number" || typeof pj.y !== "number") continue;
+              var dx = pj.x - pi.x;
+              var dy = pj.y - pi.y;
+              var distSq = dx * dx + dy * dy;
+              if (distSq > window.simConfig.interactionRadius * window.simConfig.interactionRadius || distSq === 0) continue;
+              var matrixVal = window.forceMatrix[pi.type][pj.type];
+              var strength = matrixVal * influences[i] * influences[j];
+              var scale = strength * (window.simConfig.interactionRadius * window.simConfig.interactionRadius / distSq - 1);
+              var fx = dx * scale;
+              var fy = dy * scale;
+              pi.vx = (pi.vx || 0) + fx;
+              pi.vy = (pi.vy || 0) + fy;
+              pj.vx = (pj.vx || 0) - fx;
+              pj.vy = (pj.vy || 0) - fy;
+            }
+          }
+        }
+      }
+
+      var rootPos = {};
+      for (var i = 0; i < count; i++) {
+        var p = particles[i];
+        if (p.type === "post" && p.uri) {
+          rootPos[p.uri] = p;
+        }
+      }
+
+      for (var i = 0; i < count; i++) {
+        var p = particles[i];
+        if (p.type !== "post" && p.root && rootPos[p.root]) {
+          var rp = rootPos[p.root];
+          var dx = rp.x - p.x;
+          var dy = rp.y - p.y;
+          p.vx = (p.vx || 0) + dx * window.simConfig.rootAttraction;
+          p.vy = (p.vy || 0) + dy * window.simConfig.rootAttraction;
+        }
+      }
+
+      for (var i = 0; i < count; i++) {
+        var p = particles[i];
+        var vx = (p.vx || 0) * window.simConfig.damping;
+        var vy = (p.vy || 0) * window.simConfig.damping;
+        var speedSq = vx * vx + vy * vy;
+        if (speedSq > window.simConfig.maxSpeed * window.simConfig.maxSpeed) {
+          var scale = window.simConfig.maxSpeed / Math.sqrt(speedSq);
+          vx *= scale;
+          vy *= scale;
+        }
+        p.vx = vx;
+        p.vy = vy;
+        p.x += vx;
+        p.y += vy;
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+})();
+</script><script>
+(function(){
+  var style = document.createElement("style");
+  style.textContent = "#settings-panel{background:var(--bg-elevated);border-top:1px solid var(--border-medium);flex-shrink:0;}.settings-header{padding:14px 20px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--text-secondary);transition:color .15s;}.settings-header:hover{color:var(--text-primary);}.settings-header::after{content:'▾';font-size:14px;transition:transform .2s;}.settings-header[aria-expanded='false']::after{transform:rotate(-90deg);}.settings-body{padding:0 20px 20px;}.settings-group{margin-bottom:14px;}.setting-label{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px;}.setting-value{color:var(--text-primary);font-variant-numeric:tabular-nums;}.settings-slider{width:100%;margin:0;cursor:pointer;height:16px;}.settings-btn{width:100%;border:none;border-radius:var(--radius-sm);padding:10px 14px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;transition:all .15s ease;margin-bottom:12px;}.settings-btn.primary{background:var(--accent-cyan);color:#000;}.settings-btn.primary:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(63,177,255,.4);}.settings-btn.secondary{background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border-medium);}.settings-btn.secondary:hover{background:var(--bg-primary);color:var(--text-primary);}";
+  document.head.appendChild(style);
+
+  var sidebar = document.getElementById("sidebar");
+  if (!sidebar) return;
+  var scrollArea = sidebar.querySelector(".sidebar-scroll");
+
+  var panel = document.createElement("div");
+  panel.id = "settings-panel";
+
+  var header = document.createElement("div");
+  header.className = "settings-header";
+  header.textContent = "Settings";
+  header.setAttribute("aria-expanded", "true");
+
+  var body = document.createElement("div");
+  body.className = "settings-body";
+
+  var rerollBtn = document.createElement("button");
+  rerollBtn.id = "reroll-forces-btn";
+  rerollBtn.className = "settings-btn primary";
+  rerollBtn.textContent = "Re-roll Forces";
+
+  var simGroup = document.createElement("div");
+  var influenceGroup = document.createElement("div");
+
+  var resetBtn = document.createElement("button");
+  resetBtn.id = "reset-defaults-btn";
+  resetBtn.className = "settings-btn secondary";
+  resetBtn.textContent = "Reset to Defaults";
+
+  body.appendChild(rerollBtn);
+  body.appendChild(simGroup);
+  body.appendChild(influenceGroup);
+  body.appendChild(resetBtn);
+
+  panel.appendChild(header);
+  panel.appendChild(body);
+
+  if (scrollArea && scrollArea.nextSibling) {
+    sidebar.insertBefore(panel, scrollArea.nextSibling);
+  } else {
+    sidebar.appendChild(panel);
+  }
+
+  var isOpen = true;
+  header.addEventListener("click", function(){
+    isOpen = !isOpen;
+    body.style.display = isOpen ? "block" : "none";
+    header.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  });
+
+  rerollBtn.addEventListener("click", function(){
+    for (var t1 in window.forceMatrix) {
+      if (!window.forceMatrix.hasOwnProperty(t1)) continue;
+      for (var t2 in window.forceMatrix[t1]) {
+        if (!window.forceMatrix[t1].hasOwnProperty(t2)) continue;
+        window.forceMatrix[t1][t2] = Math.random() * 2 - 1;
+      }
+    }
+  });
+
+  resetBtn.addEventListener("click", function(){
+    localStorage.removeItem("bskylife_config");
+    location.reload();
+  });
+
+  function saveConfig() {
+    try {
+      localStorage.setItem("bskylife_config", JSON.stringify(window.simConfig));
+    } catch (e) {}
+  }
+
+  function restoreConfig() {
+    var raw = localStorage.getItem("bskylife_config");
+    if (!raw) return;
+    try {
+      var parsed = JSON.parse(raw);
+      for (var key in parsed) {
+        if (!parsed.hasOwnProperty(key)) continue;
+        if (key === "influenceBase" && parsed[key] && typeof parsed[key] === "object") {
+          for (var sub in parsed[key]) {
+            if (parsed[key].hasOwnProperty(sub)) {
+              window.simConfig.influenceBase[sub] = parsed[key][sub];
+            }
+          }
+        } else {
+          window.simConfig[key] = parsed[key];
+        }
+      }
+    } catch (e) {}
+  }
+
+  restoreConfig();
+
+  function makeSlider(container, labelText, min, max, step, value, onInput, accentColor) {
+    var group = document.createElement("div");
+    group.className = "settings-group";
+
+    var label = document.createElement("label");
+    label.className = "setting-label";
+
+    var nameSpan = document.createElement("span");
+    nameSpan.textContent = labelText;
+
+    var valSpan = document.createElement("span");
+    valSpan.className = "setting-value";
+
+    label.appendChild(nameSpan);
+    label.appendChild(valSpan);
+
+    var input = document.createElement("input");
+    input.type = "range";
+    input.className = "settings-slider";
+    input.min = min;
+    input.max = max;
+    input.step = step;
+    input.value = value;
+    if (accentColor) {
+      input.style.accentColor = accentColor;
+    }
+
+    function updateVal() {
+      valSpan.textContent = input.value;
+    }
+    updateVal();
+
+    input.addEventListener("input", function(){
+      updateVal();
+      onInput(parseFloat(input.value));
+      saveConfig();
+    });
+
+    group.appendChild(label);
+    group.appendChild(input);
+    container.appendChild(group);
+    return input;
+  }
+
+  var screenMin = Math.min(window.innerWidth, window.innerHeight);
+
+  makeSlider(simGroup, "Interaction Radius", 1, 50, 1, Math.round((window.simConfig.interactionRadius / screenMin) * 100), function(v){
+    window.simConfig.interactionRadius = (v / 100) * Math.min(window.innerWidth, window.innerHeight);
+  });
+
+  makeSlider(simGroup, "Damping", 0.5, 0.99, 0.01, window.simConfig.damping, function(v){
+    window.simConfig.damping = v;
+  });
+
+  makeSlider(simGroup, "Max Speed", 1, 30, 0.5, window.simConfig.maxSpeed, function(v){
+    window.simConfig.maxSpeed = v;
+  });
+
+  makeSlider(simGroup, "Root Attraction", 0, 0.005, 0.0001, window.simConfig.rootAttraction, function(v){
+    window.simConfig.rootAttraction = v;
+  });
+
+  makeSlider(simGroup, "Like Boost Per Like", 0, 0.1, 0.005, window.simConfig.likeBoostPerLike, function(v){
+    window.simConfig.likeBoostPerLike = v;
+  });
+
+  makeSlider(simGroup, "Like Boost Max", 0, 10, 0.5, window.simConfig.likeBoostMax, function(v){
+    window.simConfig.likeBoostMax = v;
+  });
+
+  var typeOrder = ["post", "thread", "reply", "like", "repost", "quote"];
+  var typeColors = {
+    post: "#ef4444",
+    thread: "#eab308",
+    reply: "#22c55e",
+    like: "#3b82f6",
+    repost: "#a855f7",
+    quote: "#ffffff"
+  };
+
+  for (var idx = 0; idx < typeOrder.length; idx++) {
+    var t = typeOrder[idx];
+    (function(type){
+      var label = type.charAt(0).toUpperCase() + type.slice(1) + " Influence";
+      makeSlider(influenceGroup, label, 0, 2, 0.05, window.simConfig.influenceBase[type], function(v){
+        window.simConfig.influenceBase[type] = v;
+      }, typeColors[type]);
+    })(t);
+  }
+})();
+</script><script>
+(function(){
+  var style = document.createElement("style");
+  style.textContent = [
+    "#settings-panel{max-height:60vh;overflow-y:auto;}",
+    "#settings-panel::-webkit-scrollbar{width:5px;}",
+    "#settings-panel::-webkit-scrollbar-track{background:transparent;}",
+    "#settings-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:10px;}",
+    ".matrix-section{margin-top:12px;}",
+    ".matrix-legend{font-size:11px;color:var(--text-muted);margin-bottom:10px;line-height:1.4;}",
+    ".matrix-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;align-items:center;}",
+    ".matrix-header{display:flex;align-items:center;justify-content:center;padding:2px;}",
+    ".matrix-dot{width:10px;height:10px;border-radius:50%;border:1px solid rgba(255,255,255,0.1);}",
+    ".matrix-cell{border-radius:4px;overflow:hidden;border:1px solid rgba(255,255,255,0.06);min-width:0;}",
+    ".matrix-cell input{width:100%;background:transparent;border:none;color:#e6e7eb;text-align:center;font-size:11px;font-family:inherit;padding:5px 0;outline:none;-moz-appearance:textfield;}",
+    ".matrix-cell input::-webkit-outer-spin-button,.matrix-cell input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}"
+  ].join("");
+  document.head.appendChild(style);
+
+  var types = ["post","thread","reply","like","repost","quote"];
+  var typeColors = {post:"#ef4444",thread:"#eab308",reply:"#22c55e",like:"#3b82f6",repost:"#a855f7",quote:"#ffffff"};
+
+  var saved = localStorage.getItem("bskylife_matrix");
+  if (saved) {
+    try {
+      var parsed = JSON.parse(saved);
+      for (var i = 0; i < types.length; i++) {
+        var r = types[i];
+        if (!window.forceMatrix[r]) continue;
+        for (var j = 0; j < types.length; j++) {
+          var c = types[j];
+          if (parsed[r] && typeof parsed[r][c] === "number") {
+            window.forceMatrix[r][c] = parsed[r][c];
+          }
+        }
+      }
+    } catch (e) {}
+  }
+
+  function colorForValue(v) {
+    var nr = 26, ng = 29, nb = 41;
+    if (v < 0) {
+      var t = -v;
+      var rr = 127, rg = 29, rb = 29;
+      var r = Math.round(nr + (rr - nr) * t);
+      var g = Math.round(ng + (rg - ng) * t);
+      var b = Math.round(nb + (rb - nb) * t);
+      return "rgb(" + r + "," + g + "," + b + ")";
+    } else {
+      var t = v;
+      var gr = 20, gg = 83, gb = 45;
+      var r = Math.round(nr + (gr - nr) * t);
+      var g = Math.round(ng + (gg - ng) * t);
+      var b = Math.round(nb + (gb - nb) * t);
+      return "rgb(" + r + "," + g + "," + b + ")";
+    }
+  }
+
+  var panel = document.getElementById("settings-panel");
+  if (!panel) return;
+
+  var section = document.createElement("div");
+  section.className = "matrix-section";
+
+  var header = document.createElement("div");
+  header.className = "settings-header";
+  header.textContent = "Force Matrix";
+  header.setAttribute("aria-expanded", "false");
+
+  var body = document.createElement("div");
+  body.className = "settings-body";
+  body.style.display = "none";
+
+  var legend = document.createElement("div");
+  legend.className = "matrix-legend";
+  legend.textContent = "row particle is pulled or pushed by column particle (negative pushes away, positive pulls together)";
+
+  var grid = document.createElement("div");
+  grid.className = "matrix-grid";
+
+  grid.appendChild(document.createElement("div"));
+
+  for (var i = 0; i < types.length; i++) {
+    var th = document.createElement("div");
+    th.className = "matrix-header";
+    var dot = document.createElement("div");
+    dot.className = "matrix-dot";
+    dot.style.background = typeColors[types[i]];
+    dot.title = types[i];
+    th.appendChild(dot);
+    grid.appendChild(th);
+  }
+
+  var cellRefs = [];
+
+  for (var i = 0; i < types.length; i++) {
+    var rowType = types[i];
+    var rh = document.createElement("div");
+    rh.className = "matrix-header";
+    var rdot = document.createElement("div");
+    rdot.className = "matrix-dot";
+    rdot.style.background = typeColors[rowType];
+    rdot.title = rowType;
+    rh.appendChild(rdot);
+    grid.appendChild(rh);
+
+    for (var j = 0; j < types.length; j++) {
+      var colType = types[j];
+      var val = window.forceMatrix[rowType][colType];
+      if (typeof val !== "number") val = 0;
+
+      var cell = document.createElement("div");
+      cell.className = "matrix-cell";
+      cell.style.background = colorForValue(val);
+      cell.style.color = "#e6e7eb";
+
+      var inp = document.createElement("input");
+      inp.type = "number";
+      inp.min = "-1";
+      inp.max = "1";
+      inp.step = "0.05";
+      inp.value = val.toFixed(2);
+
+      (function(r, c, cellEl, inpEl){
+        inpEl.addEventListener("input", function(){
+          var v = parseFloat(inpEl.value);
+          if (isNaN(v)) v = 0;
+          if (v < -1) v = -1;
+          if (v > 1) v = 1;
+          window.forceMatrix[r][c] = v;
+          cellEl.style.background = colorForValue(v);
+          try {
+            localStorage.setItem("bskylife_matrix", JSON.stringify(window.forceMatrix));
+          } catch (e) {}
+        });
+      })(rowType, colType, cell, inp);
+
+      cell.appendChild(inp);
+      grid.appendChild(cell);
+      cellRefs.push({ row: rowType, col: colType, input: inp, cell: cell });
+    }
+  }
+
+  body.appendChild(legend);
+  body.appendChild(grid);
+  section.appendChild(header);
+  section.appendChild(body);
+  panel.appendChild(section);
+
+  header.addEventListener("click", function(){
+    var expanding = body.style.display === "none";
+    body.style.display = expanding ? "block" : "none";
+    header.setAttribute("aria-expanded", expanding ? "true" : "false");
+    if (expanding) {
+      for (var k = 0; k < cellRefs.length; k++) {
+        var ref = cellRefs[k];
+        var v = window.forceMatrix[ref.row][ref.col];
+        if (typeof v !== "number") v = 0;
+        ref.input.value = v.toFixed(2);
+        ref.cell.style.background = colorForValue(v);
+      }
+    }
+  });
 })();
 </script>
