@@ -1,0 +1,39 @@
+the term "sneakernet" was first coined in the 80s to explain the phenomena of transferring electronic data by foot instead of over the wire. the obvious ways are with simple thumbdrives, or back then, with floppy disks
+
+today we can technically sneakernet entire applications on a napkin by literally handwriting a prompt on the back of a napkin and then hand typing the prompt back into an LLM somewhere else
+
+as we've learned previously it's possible to vibe code with qrcodes by encoding a Data URI with a fetch() call to an llm server
+
+besides the llm you don't need any other servers or files. if you're running an ai locally on your device you can even be completely offline using any local ai:
+
+https://www.reddit.com/r/Hyperprompting/comments/1uc5rgm/tutorial_how_to_llmwrap_serverless_hyperlinks_qr/
+
+for example the cover of the Matrix zine in the 1st slide above generates the matrix rain in the background...that's not just for show, it's really what was generated in the browser from that zine using a webcam!
+
+the cool thing about sneakernetting generative code on paper crafts, stickers, and other forms of mixed media is that the qrcodes actually get better the better the client ai is
+
+because ai prompts semantically compress large applications, context, and experiences you can can pack A LOT into a standard qr's limit of 2953 bytes. in a way qr codes are portals into the multiversal dataverse:
+
+https://www.reddit.com/r/Hyperprompting/comments/1vl8m5b/what_does_it_mean_for_links_to_click_themselves/
+
+of course this is an obvious security nightmare, in fact most devices disable Data URIs by default. however as you can probably guess by now i've also explain methods that don't need Data URIs but instead encode an HTML file that CONSUMES other regular hyperlinks...it's just more annoying bc you have to:
+
+scan the qrcode
+
+save the string into an .html file
+
+open that .html file in a browser
+
+then scan OTHER qrcodes that point to that file
+
+it's annoying but you only need to do those steps once, but you get a lot more security and browser features:
+
+https://www.reddit.com/r/Hyperprompting/comments/1ulprhb/hyperprompting_kernel_v260702_getting_started/
+
+but as with every post in this subreddit...WHY!?
+
+because pretty soon we will all have our own personal AGIs running locally, maybe even off of solar power. what this means is that a single zine can generate entire software stacks, AAA games, and generative internets and then the really interesting question becomes...
+
+...what would we need Big Tech for?
+
+https://www.reddit.com/r/labofoz/comments/1vlr2i3/towards_building_a_radio_based_decentralized/

@@ -1,0 +1,92 @@
+#skybiome.html?e&w&a=1&p=TASK: output raw HTML fragments and CSS only, wireframe for a bluesky particle-life simulation
+  - absolutely no html, head, body, meta, title, or doctype tags
+  - DO NOT create main#A it is already there do not use #A or any other already exiting tag AT AL
+  - no javascript at all, this is just the skeleton
+  - style tag for all styles, dark theme so the canvas pops
+  - header bar across the top containing:
+    - text input id="keyword-input" default "grants" (keywords or trends to search within the firehose, used to identify grants)
+    - number input id="post-count" default 25 (number of top-level posts to search)
+    - submit button id="submit-btn" (resets the simulation)
+    - pause/play button id="pause-btn"
+    - status span id="status"
+  - below the header a flex row filling all remaining viewport space:
+    - canvas id="sim-canvas" filling all remaining width and height, dark background
+    - sidebar id="sidebar" fixed width on the right, dark scrollable panel
+  - inside the sidebar a hidden content card div id="hover-card" (display:none by default) with slots for avatar image, display name, handle, content text, particle type label, and engagement counts
+  - style hover-card as a dark card with a colored left border placeholder
+&w&a=1&p=TASK: output a SCRIPT tag that loads AT Protocol data into a global particle list
+  - create window.particles = [] and window.loadData = async function(keyword, count)
+  - all endpoints live on https://public.api.bsky.app/xrpc/ and support direct cross-origin requests natively, no CORS proxies
+  - step 1: GET app.bsky.feed.searchPosts%3Fq= encoded keyword %26 limit= count %26 sort= latest to get the top-level posts
+  - step 2: for each top-level post uri, GET app.bsky.feed.getPostThread%3Furi= encoded uri %26 depth= 10 %26 parentHeight= 0 and walk the replies tree
+  - step 3: for each top-level post uri, GET app.bsky.feed.getLikes%3Furi= encoded uri %26 limit= 100
+  - step 4: for each top-level post uri, GET app.bsky.feed.getRepostedBy%3Furi= encoded uri %26 limit= 100
+  - step 5: for each top-level post uri, GET app.bsky.feed.getQuotes%3Furi= encoded uri %26 limit= 100
+  - push one particle object per datapoint into window.particles with these fields:
+    - type: "post" for top-level posts (red), "thread" for thread posts authored by the same handle as the root post (yellow), "reply" for all other replies (green), "like" for likes (blue), "repost" for reposts (purple), "quote" for quotes (white)
+    - name: display name or username
+    - handle: their handle
+    - content: the post text if the particle is a post, thread, reply, or quote, empty string for like and repost
+    - avatar: author avatar url if available
+    - uri: the post uri if it has one
+    - root: the uri of the top-level post this particle belongs to, for clustering later
+  - update id="status" throughout with loading progress
+  - when finished dispatch CustomEvent "data:loaded" on window with window.particles as event.detail
+  - this is just a loader function, do not render anything and do not call it yet
+  - use var for all variables
+  - ONLY generate this SCRIPT tag, do not return the previous code
+&w&a=1&p=TASK: output a SCRIPT tag that sets the initial simulation state and scatters the particles
+  - the world is MUCH larger than the screen, for example 20000 by 20000 pixels, and we start fairly zoomed in
+  - create a camera object window.cam = { x: 0, y: 0, zoom: 1 } now so a later script can add zooming, and apply it every frame in the draw loop via setTransform
+  - create window.resetSimulation = function() that clears particle positions and state
+  - on "data:loaded" assign every particle an x, y and vx, vy of 0:
+    - each top-level post gets a random cluster center somewhere in the world with generous spacing between clusters
+    - its thread posts, replies, likes, reposts and quotes start roughly near their root post center with random jitter, so every post and its replies and likes start near each other with some distance
+  - run a requestAnimationFrame draw loop on canvas id="sim-canvas":
+    - resize the canvas to fill its container each frame
+    - draw every particle as a small filled circle in its type color: post red, thread yellow, reply green, like blue, repost purple, quote white
+    - draw top-level posts as their avatar image with a thick red border instead of a plain circle, fallback to a red circle while the image loads
+  - bind id="submit-btn" click and Enter keydown on id="keyword-input" to reset the simulation and call window.loadData with the trimmed keyword-input value and the post-count value
+  - autorun: call window.loadData(document.getElementById("keyword-input").value.trim(), document.getElementById("post-count").value) immediately on load
+  - prevent any native form submission or page reload
+  - this chain only sets the initial state, do NOT implement forces or zoom yet
+  - use var for all variables
+  - run immediately, no DOMContentLoaded wait
+  - ONLY generate this SCRIPT tag, do not return the previous code
+&w&a=1&p=TASK: output a SCRIPT tag that implements the pairwise particle-life behavior
+  - create window.paused = false and bind id="pause-btn" to toggle it, swapping the button label between Pause and Play
+  - create window.forceMatrix, a nested object keyed by the 6 type names post, thread, reply, like, repost, quote, holding a random attraction or repulsion value between -1 and 1 for every ordered pair, so it can be tuned later
+  - each frame, if window.paused is false:
+    - for every pair of particles within an interaction radius, apply the forceMatrix force between their two types
+    - scale force strength by type influence: posters have the strongest force, thread posts and replies second strongest, quotes and reposts weaker, likes the weakest
+    - track how many likes each poster has received and scale that posters influence up as its like count grows
+    - particles belonging to the same root feel a weak extra attraction toward their root post so clusters stay coherent
+    - apply friction or damping each frame and cap maximum velocity
+    - integrate velocity into position
+  - do NOT draw anything, the existing draw loop already renders window.particles each frame
+  - keep it performant: skip pairs beyond the interaction radius early
+  - use var for all variables
+  - ONLY generate this SCRIPT tag, do not return the previous code
+&w&a=1&p=TASK: output a SCRIPT tag that implements camera zoom
+  - use the existing window.cam = { x, y, zoom } camera object
+  - scroll wheel on the canvas zooms in and out centered on the mouse cursor position, zoom toward the pointer not the canvas center
+  - clamp zoom between a min and max so users cannot get lost
+  - touch pinch zoom with two fingers centered on the pinch midpoint, using touchstart touchmove touchend with preventDefault
+  - also add drag to pan with mouse drag or one finger, so the larger world stays navigable
+  - update window.cam only, the existing draw loop already applies it via setTransform
+  - use var for all variables
+  - ONLY generate this SCRIPT tag, do not return the previous code
+&w&a=1&p=TASK: output a SCRIPT tag that implements hover interaction with the sidebar content card
+  - on mousemove over the canvas convert screen coordinates to world coordinates using window.cam
+  - when window.paused is false (playing): only consider particles of type "post", find the closest top-level poster within a small pixel threshold of the cursor
+  - when window.paused is true (paused): consider ALL particle types, find the closest particle of any type within the threshold
+  - when a particle is hovered, populate and show the existing hidden div id="hover-card" in the sidebar:
+    - avatar image if available, display name, handle
+    - content text if the particle is a post, thread, reply, or quote
+    - the particle type label, with the card left border colored to match the particle type color
+    - engagement counts if available
+  - when nothing is hovered set hover-card back to display none
+  - highlight the hovered particle on the canvas with a bright outline ring
+  - use var for all variables
+  - ONLY generate this SCRIPT tag, do not return the previous code
+&w
