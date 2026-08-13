@@ -1,0 +1,122 @@
+<script>read('https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js','cache').then(function(lib){var s=document.createElement('script');s.textContent=lib;document.querySelector('main#A').appendChild(s)})</script>
+<style>
+  main#A {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f4f5f7;
+    color: #1c1e21;
+    overflow: hidden;
+  }
+  main#A #bar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: #1c1e21;
+    border-bottom: 1px solid #000;
+    z-index: 30;
+  }
+  main#A #actor-input {
+    flex: 0 1 340px;
+    min-width: 160px;
+    padding: 7px 12px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #e4e6eb;
+    background: #3a3b3c;
+    border: 1px solid #4e4f50;
+    border-radius: 6px;
+    outline: none;
+  }
+  main#A #actor-input:focus {
+    border-color: #2d88ff;
+    box-shadow: 0 0 0 2px rgba(45, 136, 255, 0.35);
+  }
+  main#A #load-btn {
+    flex: 0 0 auto;
+    padding: 7px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    color: #fff;
+    background: #2d88ff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  main#A #load-btn:hover { background: #1b74e4; }
+  main#A #load-btn:active { background: #1660c4; }
+  main#A #status {
+    flex: 1 1 auto;
+    font-size: 13px;
+    color: #b0b3b8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  main#A #stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  main#A #graph {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background:
+      radial-gradient(circle at 1px 1px, #d7dade 1px, transparent 0) 0 0 / 24px 24px,
+      #f4f5f7;
+  }
+  main#A #preview {
+    display: none;
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 50%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 24px 28px;
+    background: #ffffff;
+    border-left: 1px solid #d7dade;
+    box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+    overflow-y: auto;
+    z-index: 20;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  main#A #preview h1,
+  main#A #preview h2,
+  main#A #preview h3 {
+    line-height: 1.25;
+    margin: 0.6em 0 0.4em;
+  }
+  main#A #preview a { color: #1b74e4; }
+  main#A #preview img { max-width: 100%; height: auto; }
+  main#A #preview pre,
+  main#A #preview code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    background: #f0f2f5;
+    border-radius: 4px;
+  }
+  main#A #preview pre { padding: 12px; overflow-x: auto; }
+  main#A #preview code { padding: 2px 5px; }
+  main#A #preview pre code { padding: 0; background: transparent; }
+</style>
+<header id="bar">
+  <input id="actor-input" type="text" value="https://bsky.app/profile/bsky.app" spellcheck="false" autocomplete="off" placeholder="actor URL">
+  <button id="load-btn" type="button">Load</button>
+  <span id="status">idle</span>
+</header>
+<div id="stage">
+  <section id="graph"></section>
+  <aside id="preview"></aside>
+</div>

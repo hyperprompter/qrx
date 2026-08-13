@@ -1,0 +1,1254 @@
+ <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --bg-primary: #0a0a0f;
+  --bg-surface: #0d1117;
+  --bg-elevated: #151921;
+  --bg-input: #1a1d29;
+  --border-subtle: rgba(255,255,255,0.06);
+  --border-medium: rgba(255,255,255,0.09);
+  --text-primary: #e6e7eb;
+  --text-secondary: #8a8da0;
+  --text-muted: #5a5d6e;
+  --accent-cyan: #3fb1ff;
+  --accent-cyan-glow: #0ea5e9;
+  --accent-sky: #7dd3fc;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --header-height: 64px;
+}
+
+/* Prevents layout shifting and ensures fullscreen behavior */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--text-primary);
+}
+
+/* === LAYOUT WRAPPER (Placed inside #A per instructions) === */
+.page-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+/* === HEADER BAR === */
+.sim-header {
+  height: var(--header-height);
+  min-height: var(--header-height);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-medium);
+  z-index: 10;
+  position: relative;
+}
+
+.controls-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.title-section {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent-cyan-glow), var(--accent-sky));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 0 16px rgba(14, 165, 233, 0.35);
+}
+
+.brand-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--text-primary);
+}
+
+.brand-title span {
+  color: var(--accent-sky);
+  font-weight: 800;
+}
+
+/* Inputs */
+.sim-header input[type="text"],
+.sim-header input[type="number"] {
+  background: var(--bg-input);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.sim-header input[type="text"] {
+  width: 220px;
+}
+
+.sim-header input[type="number"] {
+  width: 80px;
+  appearance: none;
+  -moz-appearance: textfield;
+}
+
+.sim-header input[type="number"]::-webkit-inner-spin-button,
+.sim-header input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.sim-header input::placeholder {
+  color: var(--text-muted);
+}
+
+.sim-header input:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 0 3px rgba(63, 177, 255, 0.15);
+}
+
+.sim-header label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-secondary);
+  margin-right: -4px;
+}
+
+/* Buttons */
+.sim-header button {
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+button#submit-btn {
+  background: var(--accent-cyan);
+  color: #000000;
+}
+
+button#submit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(63, 177, 255, 0.4);
+}
+
+button#pause-btn {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-medium);
+}
+
+button#pause-btn:hover {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Status */
+#status {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+  padding-left: 10px;
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#status::before {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: 0 0 6px rgba(255,255,255,0.1);
+}
+
+/* === MAIN WORKSPACE === */
+.workspace {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+/* === SIDEBAR === */
+#sidebar {
+  width: 340px;
+  min-width: 340px;
+  max-width: 340px;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-medium);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  z-index: 5;
+  position: relative;
+}
+
+.sidebar-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--text-ternary, var(--text-muted));
+}
+
+.sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px;
+  scroll-behavior: smooth;
+}
+
+/* Scrollbar */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 5px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+}
+
+/* === CANVAS === */
+#sim-canvas {
+  display: block;
+  background: var(--bg-primary);
+  flex: 1;
+  height: 100%;
+  width: 100%;
+  cursor: crosshair;
+}
+
+/* === HOVER CARD === */
+#hover-card {
+  display: none;
+  width: 100%;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-medium);
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+  transition: none;
+}
+
+#hover-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: linear-gradient(180deg, var(--accent-cyan-glow), var(--accent-sky));
+  z-index: 2;
+}
+
+.card-inner {
+  padding: 18px 20px 18px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+}
+
+/* Avatar & Identity Row */
+.card-header-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.card-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border: 2px solid var(--border-medium);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-avatar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1), transparent 60%);
+}
+
+.card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+.card-id-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.card-display-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-handle {
+  font-size: 12px;
+  color: var(--accent-cyan);
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+/* Type Badge */
+.card-type-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-particle-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--accent-sky);
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(63, 177, 255, 0.08);
+  border: 1px solid rgba(63, 177, 255, 0.15);
+}
+
+/* Content */
+.card-content {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+/* Engagement Counts */
+.card-engagement-row {
+  display: flex;
+  gap: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.engagement-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.engagement-item .count {
+  color: var(--text-secondary);
+}
+</style>
+
+<div class="page-wrapper">
+  <!-- HEADER -->
+  <div class="sim-header">
+    <div class="title-section">
+      <div class="logo-icon">☄</div>
+      <div class="brand-title">BLUESKY <span>PARTICLE LIFE</span></div>
+    </div>
+
+    <div class="controls-group">
+      <div class="controls-group">
+        <label>Keywords</label>
+        <input type="text" id="keyword-input" value="grants" placeholder="keywords or trends..." />
+        <label>Posts</label>
+        <input type="number" id="post-count" value="25" />
+        <span id="status">Idle</span>
+      </div>
+      <div class="controls-group">
+        <button id="submit-btn">Run Simulation</button>
+        <button id="pause-btn">⏸ Pause</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="workspace">
+    <canvas id="sim-canvas"></canvas>
+
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">Inspect Particles</div>
+      </div>
+
+      <div class="sidebar-scroll">
+        <!-- Hidden by default -->
+        <div id="hover-card">
+          <div class="card-inner">
+            <!-- Identity Stripe -->
+            <div class="card-header-row">
+              <div class="card-avatar">
+                <!-- Avatar image slot -->
+                <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="avatar" />
+              </div>
+              <div class="card-id-col">
+                <div class="card-display-name">Display Name Slot</div>
+                <div class="card-handle">@handle.slot</div>
+              </div>
+            </div>
+
+            <!-- Meta + Type -->
+            <div class="card-type-row">
+              <span class="card-particle-type">Grant</span>
+            </div>
+
+            <!-- Content Body -->
+            <div class="card-content">
+              Content text slot describing the post. This area holds the raw text from the particle feed.
+            </div>
+
+            <!-- Engagement Footer -->
+            <div class="card-engagement-row">
+              <div class="engagement-item">
+                <span class="icon">💬</span> <span class="count">0</span>
+              </div>
+              <div class="engagement-item">
+                <span class="icon">🔁</span> <span class="count">0</span>
+              </div>
+              <div class="engagement-item">
+                <span class="icon">❤</span> <span class="count">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- other dynamic content could follow here -->
+      </div>
+    </aside>
+  </div>
+</div><script>
+window.particles = [];
+window.loadData = async function(keyword, count) {
+  var statusEl = document.getElementById("status");
+  var setStatus = function(msg) {
+    if (statusEl) statusEl.textContent = msg;
+  };
+
+  window.particles = [];
+  setStatus("Searching posts...");
+
+  var collectedPosts = [];
+  var cursor = undefined;
+  var limit = 100;
+  var target = parseInt(count) || 25;
+
+  while (collectedPosts.length < target) {
+    var url = "https://api.bsky.app/xrpc/app.bsky.feed.searchPosts?q=" + encodeURIComponent(keyword) + "&limit=" + limit + "&sort=latest";
+    if (cursor) {
+      url = url + "&cursor=" + encodeURIComponent(cursor);
+    }
+    var res = await fetch(url);
+    if (!res.ok) {
+      setStatus("Search failed: " + res.status);
+      break;
+    }
+    var data = await res.json();
+    if (!data.posts || data.posts.length === 0) {
+      break;
+    }
+    for (var i = 0; i < data.posts.length; i++) {
+      var post = data.posts[i];
+      if (post.record && !post.record.reply) {
+        collectedPosts.push(post);
+        if (collectedPosts.length >= target) {
+          break;
+        }
+      }
+    }
+    cursor = data.cursor;
+    if (!cursor) {
+      break;
+    }
+    setStatus("Found " + collectedPosts.length + " top-level posts...");
+  }
+
+  if (collectedPosts.length === 0) {
+    setStatus("No top-level posts found.");
+    window.dispatchEvent(new CustomEvent("data:loaded", { detail: window.particles }));
+    return;
+  }
+
+  setStatus("Loading engagement data for " + collectedPosts.length + " posts...");
+
+  for (var p = 0; p < collectedPosts.length; p++) {
+    var rootPost = collectedPosts[p];
+    var rootUri = rootPost.uri;
+    var rootHandle = rootPost.author ? rootPost.author.handle : "";
+    var rootName = (rootPost.author && rootPost.author.displayName) ? rootPost.author.displayName : rootHandle;
+    var rootAvatar = (rootPost.author && rootPost.author.avatar) ? rootPost.author.avatar : "";
+    var rootText = (rootPost.record && rootPost.record.text) ? rootPost.record.text : "";
+
+    window.particles.push({
+      type: "post",
+      name: rootName,
+      handle: rootHandle,
+      content: rootText,
+      avatar: rootAvatar,
+      uri: rootUri,
+      root: rootUri
+    });
+
+    var encodedUri = encodeURIComponent(rootUri);
+    var threadUrl = "https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=" + encodedUri + "&depth=10&parentHeight=0";
+    var likesUrl = "https://public.api.bsky.app/xrpc/app.bsky.feed.getLikes?uri=" + encodedUri + "&limit=100";
+    var repostsUrl = "https://public.api.bsky.app/xrpc/app.bsky.feed.getRepostedBy?uri=" + encodedUri + "&limit=100";
+    var quotesUrl = "https://public.api.bsky.app/xrpc/app.bsky.feed.getQuotes?uri=" + encodedUri + "&limit=100";
+
+    setStatus("[" + (p + 1) + "/" + collectedPosts.length + "] Fetching thread, likes, reposts, quotes...");
+
+    var threadRes, likesRes, repostsRes, quotesRes;
+    try {
+      var promises = [
+        fetch(threadUrl),
+        fetch(likesUrl),
+        fetch(repostsUrl),
+        fetch(quotesUrl)
+      ];
+      var results = await Promise.all(promises);
+      threadRes = results[0];
+      likesRes = results[1];
+      repostsRes = results[2];
+      quotesRes = results[3];
+    } catch (e) {
+      setStatus("Network error on post " + (p + 1));
+      continue;
+    }
+
+    if (threadRes.ok) {
+      var threadData = await threadRes.json();
+      if (threadData.thread && threadData.thread.replies) {
+        var stack = [];
+        for (var r = 0; r < threadData.thread.replies.length; r++) {
+          stack.push(threadData.thread.replies[r]);
+        }
+        while (stack.length > 0) {
+          var node = stack.pop();
+          if (!node || !node.post) {
+            continue;
+          }
+          var nodeHandle = node.post.author ? node.post.author.handle : "";
+          var nodeName = (node.post.author && node.post.author.displayName) ? node.post.author.displayName : nodeHandle;
+          var nodeAvatar = (node.post.author && node.post.author.avatar) ? node.post.author.avatar : "";
+          var nodeText = (node.post.record && node.post.record.text) ? node.post.record.text : "";
+          var nodeUri = node.post.uri;
+          var nodeType = (nodeHandle === rootHandle) ? "thread" : "reply";
+          window.particles.push({
+            type: nodeType,
+            name: nodeName,
+            handle: nodeHandle,
+            content: nodeText,
+            avatar: nodeAvatar,
+            uri: nodeUri,
+            root: rootUri
+          });
+          if (node.replies) {
+            for (var c = 0; c < node.replies.length; c++) {
+              stack.push(node.replies[c]);
+            }
+          }
+        }
+      }
+    }
+
+    if (likesRes.ok) {
+      var likesData = await likesRes.json();
+      if (likesData.likes) {
+        for (var l = 0; l < likesData.likes.length; l++) {
+          var like = likesData.likes[l];
+          var actor = like.actor || {};
+          var likeHandle = actor.handle || "";
+          var likeName = actor.displayName || likeHandle;
+          var likeAvatar = actor.avatar || "";
+          window.particles.push({
+            type: "like",
+            name: likeName,
+            handle: likeHandle,
+            content: "",
+            avatar: likeAvatar,
+            uri: "",
+            root: rootUri
+          });
+        }
+      }
+    }
+
+    if (repostsRes.ok) {
+      var repostsData = await repostsRes.json();
+      if (repostsData.repostedBy) {
+        for (var rp = 0; rp < repostsData.repostedBy.length; rp++) {
+          var reposter = repostsData.repostedBy[rp];
+          var rHandle = reposter.handle || "";
+          var rName = reposter.displayName || rHandle;
+          var rAvatar = reposter.avatar || "";
+          window.particles.push({
+            type: "repost",
+            name: rName,
+            handle: rHandle,
+            content: "",
+            avatar: rAvatar,
+            uri: "",
+            root: rootUri
+          });
+        }
+      }
+    }
+
+    if (quotesRes.ok) {
+      var quotesData = await quotesRes.json();
+      if (quotesData.posts) {
+        for (var q = 0; q < quotesData.posts.length; q++) {
+          var qpost = quotesData.posts[q];
+          var qHandle = qpost.author ? qpost.author.handle : "";
+          var qName = (qpost.author && qpost.author.displayName) ? qpost.author.displayName : qHandle;
+          var qAvatar = (qpost.author && qpost.author.avatar) ? qpost.author.avatar : "";
+          var qText = (qpost.record && qpost.record.text) ? qpost.record.text : "";
+          var qUri = qpost.uri || "";
+          window.particles.push({
+            type: "quote",
+            name: qName,
+            handle: qHandle,
+            content: qText,
+            avatar: qAvatar,
+            uri: qUri,
+            root: rootUri
+          });
+        }
+      }
+    }
+
+    setStatus("[" + (p + 1) + "/" + collectedPosts.length + "] Processed. Total particles: " + window.particles.length);
+  }
+
+  setStatus("Done. Loaded " + window.particles.length + " particles.");
+  window.dispatchEvent(new CustomEvent("data:loaded", { detail: window.particles }));
+};
+</script><script>
+window.cam = { x: 0, y: 0, zoom: 1 };
+
+window.resetSimulation = function() {
+  window.particles = [];
+};
+
+var canvas = document.getElementById("sim-canvas");
+var ctx = canvas ? canvas.getContext("2d") : null;
+var parent = canvas ? canvas.parentElement : null;
+
+var draw = function() {
+  if (canvas && parent) {
+    canvas.width = parent.clientWidth;
+    canvas.height = parent.clientHeight;
+  }
+  if (!ctx) {
+    requestAnimationFrame(draw);
+    return;
+  }
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "#0a0a0f";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  var zoom = window.cam.zoom;
+  var cx = canvas.width / 2;
+  var cy = canvas.height / 2;
+  ctx.setTransform(zoom, 0, 0, zoom, cx - window.cam.x * zoom, cy - window.cam.y * zoom);
+
+  var particles = window.particles || [];
+  var i, p, size, drawn, color, radius;
+  for (i = 0; i < particles.length; i++) {
+    p = particles[i];
+    if (typeof p.x !== "number" || typeof p.y !== "number") {
+      continue;
+    }
+    if (p.type === "post") {
+      size = 18;
+      drawn = false;
+      if (p.avatar) {
+        if (!p._img) {
+          p._img = new Image();
+          p._img.src = p.avatar;
+        }
+        if (p._img.complete && p._img.naturalWidth > 0) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(p._img, p.x - size, p.y - size, size * 2, size * 2);
+          ctx.restore();
+          drawn = true;
+        }
+      }
+      if (!drawn) {
+        ctx.fillStyle = "red";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      radius = 5;
+      if (p.type === "thread") {
+        color = "yellow";
+      } else if (p.type === "reply") {
+        color = "green";
+      } else if (p.type === "like") {
+        color = "blue";
+      } else if (p.type === "repost") {
+        color = "purple";
+      } else if (p.type === "quote") {
+        color = "white";
+      } else {
+        color = "gray";
+      }
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  requestAnimationFrame(draw);
+};
+
+requestAnimationFrame(draw);
+
+window.addEventListener("data:loaded", function(e) {
+  var particles = e.detail;
+  window.particles = particles;
+  var worldSize = 2000;
+  var halfWorld = worldSize / 2;
+  var centers = {};
+  var rootPositions = [];
+  var i, p, cx, cy, center, jitter;
+
+  for (i = 0; i < particles.length; i++) {
+    p = particles[i];
+    p.vx = 0;
+    p.vy = 0;
+    if (p.type === "post") {
+      cx = Math.random() * worldSize - halfWorld;
+      cy = Math.random() * worldSize - halfWorld;
+      centers[p.uri] = { x: cx, y: cy };
+      p.x = cx;
+      p.y = cy;
+      rootPositions.push({ x: cx, y: cy });
+    }
+  }
+
+  for (i = 0; i < particles.length; i++) {
+    p = particles[i];
+    if (p.type !== "post") {
+      center = centers[p.root];
+      if (center) {
+        jitter = 600;
+        p.x = center.x + (Math.random() * jitter * 2 - jitter);
+        p.y = center.y + (Math.random() * jitter * 2 - jitter);
+      } else {
+        p.x = Math.random() * worldSize - halfWorld;
+        p.y = Math.random() * worldSize - halfWorld;
+      }
+    }
+  }
+
+  var sumX = 0;
+  var sumY = 0;
+  for (i = 0; i < rootPositions.length; i++) {
+    sumX += rootPositions[i].x;
+    sumY += rootPositions[i].y;
+  }
+  if (rootPositions.length > 0) {
+    window.cam.x = sumX / rootPositions.length;
+    window.cam.y = sumY / rootPositions.length;
+  } else {
+    window.cam.x = 0;
+    window.cam.y = 0;
+  }
+  window.cam.zoom = 0.5;
+});
+
+var keywordInput = document.getElementById("keyword-input");
+var postCountInput = document.getElementById("post-count");
+var submitBtn = document.getElementById("submit-btn");
+
+var runSimulation = function() {
+  var keyword = keywordInput ? keywordInput.value.trim() : "";
+  var count = postCountInput ? postCountInput.value : 25;
+  window.resetSimulation();
+  window.loadData(keyword, count);
+};
+
+if (submitBtn) {
+  submitBtn.addEventListener("click", runSimulation);
+}
+if (keywordInput) {
+  keywordInput.addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      runSimulation();
+    }
+  });
+}
+
+var initialKeyword = keywordInput ? keywordInput.value.trim() : "grants";
+var initialCount = postCountInput ? postCountInput.value : 25;
+window.loadData(initialKeyword, initialCount);
+</script> <script>
+(function(){
+  window.paused = false;
+  var pauseBtn = document.getElementById("pause-btn");
+  if (pauseBtn) {
+    pauseBtn.addEventListener("click", function(){
+      window.paused = !window.paused;
+      pauseBtn.textContent = window.paused ? "▶ Play" : "⏸ Pause";
+    });
+  }
+
+  var types = ["post","thread","reply","like","repost","quote"];
+  window.forceMatrix = {};
+  for (var ti = 0; ti < types.length; ti++) {
+    var t1 = types[ti];
+    window.forceMatrix[t1] = {};
+    for (var tj = 0; tj < types.length; tj++) {
+      var t2 = types[tj];
+      window.forceMatrix[t1][t2] = Math.random() * 2 - 1;
+    }
+  }
+
+  var INTERACTION_RADIUS = 200;
+  var RADIUS_SQ = INTERACTION_RADIUS * INTERACTION_RADIUS;
+  var MIN_DIST_SQ = 100;
+  var DAMPING = 0.95;
+  var MAX_SPEED = 8;
+  var MAX_SPEED_SQ = MAX_SPEED * MAX_SPEED;
+  var ROOT_ATTRACTION = 0.0005;
+  var LIKE_BOOST_PER_LIKE = 0.02;
+  var LIKE_BOOST_MAX = 3.0;
+
+  var influenceBase = {post:1, thread:0.7, reply:0.7, like:0.2, repost:0.4, quote:0.4};
+  var likeCounts = {};
+  var rootPositions = {};
+  var influenceMap = [];
+
+  function updateMetaData(){
+    var parts = window.particles;
+    if (!parts) parts = [];
+    likeCounts = {};
+    rootPositions = {};
+    influenceMap = new Array(parts.length);
+    var i, p;
+    for (i = 0; i < parts.length; i++) {
+      p = parts[i];
+      if (p.type === "post") {
+        likeCounts[p.uri] = 0;
+        rootPositions[p.uri] = {x: p.x, y: p.y};
+      }
+    }
+    for (i = 0; i < parts.length; i++) {
+      p = parts[i];
+      if (p.type === "like" && p.root && likeCounts.hasOwnProperty(p.root)) {
+        likeCounts[p.root]++;
+      }
+    }
+    for (i = 0; i < parts.length; i++) {
+      p = parts[i];
+      var base = influenceBase[p.type] !== undefined ? influenceBase[p.type] : 0.2;
+      if (p.type === "post") {
+        var likes = likeCounts[p.uri] || 0;
+        var boost = likes * LIKE_BOOST_PER_LIKE;
+        if (boost > LIKE_BOOST_MAX) boost = LIKE_BOOST_MAX;
+        base += boost;
+      }
+      influenceMap[i] = base;
+    }
+  }
+
+  window.addEventListener("data:loaded", function(e){
+    updateMetaData();
+  });
+
+  var grid = new Map();
+
+  function simulate(){
+    var particles = window.particles;
+    if (!particles || particles.length === 0) {
+      requestAnimationFrame(simulate);
+      return;
+    }
+
+    if (!window.paused) {
+      grid.clear();
+      var i, p, cx, cy, key, cell;
+      for (i = 0; i < particles.length; i++) {
+        p = particles[i];
+        if (typeof p.x !== "number" || typeof p.y !== "number") continue;
+        cx = Math.floor(p.x / INTERACTION_RADIUS);
+        cy = Math.floor(p.y / INTERACTION_RADIUS);
+        key = cx + ":" + cy;
+        cell = grid.get(key);
+        if (!cell) {
+          cell = [];
+          grid.set(key, cell);
+        }
+        cell.push(i);
+      }
+
+      for (i = 0; i < particles.length; i++) {
+        p = particles[i];
+        if (typeof p.vx !== "number") p.vx = 0;
+        if (typeof p.vy !== "number") p.vy = 0;
+      }
+
+      var cellKeys = [];
+      grid.forEach(function(v, k){
+        cellKeys.push(k);
+      });
+
+      var k, a, j, b, dx, dy, pi, pj, dxp, dyp, distSq, falloff, strength, infI, infJ, baseStr, invDistSq, fx, fy, txi, matRow, nKey, nCell, colonIdx, ccx, ccy;
+      for (k = 0; k < cellKeys.length; k++) {
+        key = cellKeys[k];
+        cell = grid.get(key);
+        if (!cell) continue;
+        colonIdx = key.indexOf(':');
+        ccx = parseInt(key.substring(0, colonIdx), 10);
+        ccy = parseInt(key.substring(colonIdx + 1), 10);
+        for (a = 0; a < cell.length; a++) {
+          i = cell[a];
+          pi = particles[i];
+          txi = pi.type;
+          infI = influenceMap[i];
+          if (infI === undefined || infI === null) infI = 0.2;
+          matRow = window.forceMatrix[txi];
+          if (!matRow) matRow = {};
+          for (dx = -1; dx <= 1; dx++) {
+            for (dy = -1; dy <= 1; dy++) {
+              nKey = (ccx + dx) + ":" + (ccy + dy);
+              nCell = grid.get(nKey);
+              if (!nCell) continue;
+              for (b = 0; b < nCell.length; b++) {
+                j = nCell[b];
+                if (j <= i) continue;
+                pj = particles[j];
+                dxp = pj.x - pi.x;
+                dyp = pj.y - pi.y;
+                distSq = dxp * dxp + dyp * dyp;
+                if (distSq > RADIUS_SQ) continue;
+                if (distSq < MIN_DIST_SQ) distSq = MIN_DIST_SQ;
+                falloff = 1 - distSq / RADIUS_SQ;
+                if (falloff <= 0) continue;
+                strength = matRow[pj.type];
+                if (strength === undefined || strength === null) strength = 0;
+                infJ = influenceMap[j];
+                if (infJ === undefined || infJ === null) infJ = 0.2;
+                baseStr = strength * infI * infJ;
+                invDistSq = 1 / distSq;
+                fx = baseStr * falloff * dxp * invDistSq;
+                fy = baseStr * falloff * dyp * invDistSq;
+                pi.vx += fx;
+                pi.vy += fy;
+                pj.vx -= fx;
+                pj.vy -= fy;
+              }
+            }
+          }
+        }
+      }
+
+      var rdx, rdy, rPos;
+      for (i = 0; i < particles.length; i++) {
+        p = particles[i];
+        if (p.type === "post") continue;
+        rPos = rootPositions[p.root];
+        if (!rPos) continue;
+        rdx = rPos.x - p.x;
+        rdy = rPos.y - p.y;
+        p.vx += rdx * ROOT_ATTRACTION;
+        p.vy += rdy * ROOT_ATTRACTION;
+      }
+
+      var vSq, scale;
+      for (i = 0; i < particles.length; i++) {
+        p = particles[i];
+        p.vx *= DAMPING;
+        p.vy *= DAMPING;
+        vSq = p.vx * p.vx + p.vy * p.vy;
+        if (vSq > MAX_SPEED_SQ) {
+          scale = MAX_SPEED / Math.sqrt(vSq);
+          p.vx *= scale;
+          p.vy *= scale;
+        }
+        p.x += p.vx;
+        p.y += p.vy;
+      }
+
+      for (i = 0; i < particles.length; i++) {
+        p = particles[i];
+        if (p.type === "post" && rootPositions[p.uri]) {
+          rootPositions[p.uri].x = p.x;
+          rootPositions[p.uri].y = p.y;
+        }
+      }
+    }
+
+    requestAnimationFrame(simulate);
+  }
+
+  simulate();
+  updateMetaData();
+})();
+</script> <script>
+(function(){
+  var canvas = document.getElementById("sim-canvas");
+  var hoverCard = document.getElementById("hover-card");
+  if (!canvas || !hoverCard) return;
+
+  var overlay = document.createElement("canvas");
+  overlay.style.position = "absolute";
+  overlay.style.top = "0";
+  overlay.style.left = "0";
+  overlay.style.pointerEvents = "none";
+  overlay.style.zIndex = "2";
+  canvas.parentElement.appendChild(overlay);
+  var overlayCtx = overlay.getContext("2d");
+
+  var avatarImg = hoverCard.querySelector(".card-avatar img");
+  var displayName = hoverCard.querySelector(".card-display-name");
+  var handle = hoverCard.querySelector(".card-handle");
+  var typeLabel = hoverCard.querySelector(".card-particle-type");
+  var content = hoverCard.querySelector(".card-content");
+  var countEls = hoverCard.querySelectorAll(".engagement-item .count");
+
+  var colorMap = {
+    post: "#ef4444",
+    thread: "#eab308",
+    reply: "#22c55e",
+    like: "#3b82f6",
+    repost: "#a855f7",
+    quote: "#ffffff"
+  };
+
+  var hoveredParticle = null;
+  var lastHovered = null;
+  var threshold = 30;
+
+  function syncOverlaySize() {
+    if (!canvas) return;
+    overlay.width = canvas.width;
+    overlay.height = canvas.height;
+    overlay.style.width = canvas.clientWidth + "px";
+    overlay.style.height = canvas.clientHeight + "px";
+  }
+
+  function hexToRgba(hex, alpha) {
+    var r = parseInt(hex.slice(1, 3), 16);
+    var g = parseInt(hex.slice(3, 5), 16);
+    var b = parseInt(hex.slice(5, 7), 16);
+    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+  }
+
+  function computeEngagement(postUri) {
+    var likes = 0, replies = 0, reposts = 0;
+    var all = window.particles || [];
+    for (var i = 0; i < all.length; i++) {
+      var p = all[i];
+      if (p.root !== postUri) continue;
+      var t = p.type;
+      if (t === "like") likes++;
+      else if (t === "reply" || t === "thread") replies++;
+      else if (t === "repost") reposts++;
+    }
+    return { likes: likes, replies: replies, reposts: reposts };
+  }
+
+  function populateCard(p) {
+    var color = colorMap[p.type] || "#888888";
+
+    if (avatarImg) avatarImg.src = p.avatar || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+    if (displayName) displayName.textContent = p.name || "Unknown";
+    if (handle) handle.textContent = p.handle ? "@" + p.handle : "";
+    if (typeLabel) {
+      typeLabel.textContent = p.type.charAt(0).toUpperCase() + p.type.slice(1);
+      typeLabel.style.color = color;
+      typeLabel.style.background = hexToRgba(color, 0.08);
+      typeLabel.style.borderColor = hexToRgba(color, 0.15);
+    }
+    if (content) {
+      if (["post","thread","reply","quote"].indexOf(p.type) !== -1) {
+        content.textContent = p.content || "";
+        content.style.display = "";
+      } else {
+        content.style.display = "none";
+      }
+    }
+
+    hoverCard.style.setProperty("--accent-cyan-glow", color);
+    hoverCard.style.setProperty("--accent-sky", color);
+
+    if (p.type === "post") {
+      var eng = computeEngagement(p.uri);
+      if (countEls.length > 0) countEls[0].textContent = eng.replies;
+      if (countEls.length > 1) countEls[1].textContent = eng.reposts;
+      if (countEls.length > 2) countEls[2].textContent = eng.likes;
+    } else {
+      if (countEls.length > 0) countEls[0].textContent = "0";
+      if (countEls.length > 1) countEls[1].textContent = "0";
+      if (countEls.length > 2) countEls[2].textContent = "0";
+    }
+  }
+
+  canvas.addEventListener("mousemove", function(e) {
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    var my = e.clientY - rect.top;
+    var particles = window.particles || [];
+    var considerAll = window.paused;
+    var zoom = window.cam.zoom;
+    var worldX = (mx - canvas.width * 0.5) / zoom + window.cam.x;
+    var worldY = (my - canvas.height * 0.5) / zoom + window.cam.y;
+    var worldThreshold = threshold / zoom;
+    var closest = null;
+    var closestDist = Infinity;
+    var dx, dy, dist, p, i;
+
+    for (i = 0; i < particles.length; i++) {
+      p = particles[i];
+      if (typeof p.x !== "number" || typeof p.y !== "number") continue;
+      if (!considerAll && p.type !== "post") continue;
+      dx = p.x - worldX;
+      dy = p.y - worldY;
+      dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < worldThreshold && dist < closestDist) {
+        closestDist = dist;
+        closest = p;
+      }
+    }
+
+    if (closest) {
+      hoveredParticle = closest;
+      if (closest !== lastHovered) {
+        lastHovered = closest;
+        populateCard(closest);
+      }
+      hoverCard.style.display = "block";
+    } else {
+      hoveredParticle = null;
+      lastHovered = null;
+      hoverCard.style.display = "none";
+    }
+  });
+
+  canvas.addEventListener("mouseleave", function() {
+    hoveredParticle = null;
+    lastHovered = null;
+    hoverCard.style.display = "none";
+  });
+
+  function renderHighlight() {
+    syncOverlaySize();
+    if (!overlayCtx) {
+      requestAnimationFrame(renderHighlight);
+      return;
+    }
+    overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+    if (hoveredParticle && canvas) {
+      var z = window.cam.zoom;
+      var sx = (hoveredParticle.x - window.cam.x) * z + overlay.width * 0.5;
+      var sy = (hoveredParticle.y - window.cam.y) * z + overlay.height * 0.5;
+      var r = hoveredParticle.type === "post" ? 24 : 11;
+      var color = colorMap[hoveredParticle.type] || "#ffffff";
+
+      overlayCtx.save();
+      overlayCtx.strokeStyle = "#ffffff";
+      overlayCtx.lineWidth = 2;
+      overlayCtx.shadowColor = color;
+      overlayCtx.shadowBlur = 12;
+      overlayCtx.beginPath();
+      overlayCtx.arc(sx, sy, r, 0, Math.PI * 2);
+      overlayCtx.stroke();
+      overlayCtx.restore();
+    }
+    requestAnimationFrame(renderHighlight);
+  }
+
+  requestAnimationFrame(renderHighlight);
+})();
+</script>
