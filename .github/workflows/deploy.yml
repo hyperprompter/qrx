@@ -40,6 +40,6 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
-          # Keeps deployment history clean — one commit per deploy
           force_orphan: true
+          cname: hypertext.wiki 
 
