@@ -246,11 +246,10 @@ button#pause-btn:hover {
 }
 
 .sidebar-scroll {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 20px;
-  scroll-behavior: smooth;
+  flex: 0 0 auto;
+  height: 0;
+  padding: 0;
+  overflow: visible;
 }
 
 /* Scrollbar */
@@ -278,14 +277,16 @@ button#pause-btn:hover {
 /* === HOVER CARD === */
 #hover-card {
   display: none;
-  width: 100%;
+  position: fixed;
+  top: 76px;
+  right: 12px;
+  width: 320px;
+  z-index: 9999;
   background: var(--bg-elevated);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-medium);
   overflow: hidden;
-  position: absolute;
   box-shadow: 0 8px 32px rgba(0,0,0,0.45);
-  transition: none;
 }
 
 #hover-card::before {
@@ -768,17 +769,17 @@ var draw = function() {
     } else {
       radius = 5;
       if (p.type === "thread") {
-        color = "yellow";
+        color = "#ffe600";
       } else if (p.type === "reply") {
-        color = "green";
+        color = "#39ff14";
       } else if (p.type === "like") {
-        color = "blue";
+        color = "#4dc3ff";
       } else if (p.type === "repost") {
-        color = "purple";
+        color = "#e26bff";
       } else if (p.type === "quote") {
-        color = "white";
+        color = "#ffffff";
       } else {
-        color = "gray";
+        color = "#888888";
       }
       ctx.fillStyle = color;
       ctx.beginPath();
@@ -795,7 +796,7 @@ requestAnimationFrame(draw);
 window.addEventListener("data:loaded", function(e) {
   var particles = e.detail;
   window.particles = particles;
-  var worldSize = 5000;
+  var worldSize = 500;
   var halfWorld = worldSize / 2;
   var centers = {};
   var rootPositions = [];
@@ -1522,7 +1523,7 @@ window.loadData(initialKeyword, initialCount);
 (function(){
   var style = document.createElement("style");
   style.textContent = [
-    "#settings-panel{max-height:60vh;overflow-y:auto;}",
+    "#settings-panel{flex:1;min-height:0;overflow-y:auto;}",
     "#settings-panel::-webkit-scrollbar{width:5px;}",
     "#settings-panel::-webkit-scrollbar-track{background:transparent;}",
     "#settings-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.08);border-radius:10px;}",
