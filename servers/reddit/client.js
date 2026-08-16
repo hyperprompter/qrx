@@ -2,12 +2,19 @@ var A = document.getElementById('A')
 var status = document.getElementById('status')
 var files = {}
 var scriptManifest = null
+var moduleManifest = null
+var loadedModules = {}
 var seeded = false
 
 window.DB = 'main'
 window.FILES = 'files'
 window.MAIN = 'main'
 window.NS = Promise.resolve('main')
+
+/* Registry populated by build-time-wrapped kernel modules
+ * (dist/client/scripts/mod-*.js). This replaces new Function(),
+ * which Devvit's CSP blocks at runtime. */
+window.__qrx_mod = window.__qrx_mod || {}
 
 /* Intercept iframe creation — override document.createElement to catch
  * every new iframe and proxy its src property before scripts set it. */
@@ -45,10 +52,15 @@ async function renderIntoIframe(iframe, hash) {
   if (!iframe.isConnected) return
 
   try {
+    /* The iframe hash may itself carry a tape: 'paint?windows=...' */
+    var qIdx = hash.indexOf('?')
+    var hname = qIdx === -1 ? hash : hash.slice(0, qIdx)
+    var hparams = qIdx === -1 ? '' : hash.slice(qIdx + 1)
+
     var res = await fetch('/api/run', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ns: 'main', hash: hash, params: '', files: {} })
+      body: JSON.stringify({ ns: 'main', hash: hname || 'main', params: hparams, files: {} })
     })
     var data = await res.json()
     var doc = iframe.contentDocument
@@ -57,14 +69,40 @@ async function renderIntoIframe(iframe, hash) {
     doc.write('<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:8px;background:#000;color:#fff;font-family:monospace}</style></head><body>' + (data.html || '') + '</body></html>')
     doc.close()
 
+    /* Kernel globals inside the iframe — wrapped modules resolve bare
+     * read/write/filename through the scope chain to the iframe's window,
+     * so they must exist there too. */
+    var iw = doc.defaultView
+    if (iw) {
+      iw.__qrx_mod = iw.__qrx_mod || {}
+      iw.read = window.read
+      iw.write = window.write
+      iw.filename = hname || 'main'
+      iw.hydrate = function(h) { doc.body.innerHTML = h }
+    }
+
+    /* Inline page scripts extracted at build time (self-executing) */
     var manifest = await getManifest()
-    var key = 'main/' + hash
+    var key = 'main/' + (hname || 'main')
     var scripts = manifest[key] || []
     for (var i = 0; i < scripts.length; i++) {
       var s = doc.createElement('script')
       s.src = '/' + scripts[i]
       doc.head.appendChild(s)
       await new Promise(function(r) { s.onload = r; s.onerror = r })
+    }
+
+    /* Tape-deferred kernel modules, in tape order */
+    var clientScripts = data.clientScripts || []
+    var v2 = data.html || ''
+    for (var j = 0; j < clientScripts.length; j++) {
+      try {
+        var fn = await loadModuleInto(iw, doc, clientScripts[j].key, clientScripts[j].src)
+        if (fn) {
+          var r2 = await fn.call(iw, iw, v2, clientScripts[j].arg)
+          if (r2 !== undefined) v2 = String(r2)
+        }
+      } catch(e) { console.error('[QRX iframe mod]', clientScripts[j].key, e) }
     }
   } catch(e) {
     console.error('[QRX iframe]', hash, e)
@@ -108,11 +146,23 @@ function dbGetAllKeys(db) {
   })
 }
 
-async function getManifest() {
-  if (scriptManifest) return scriptManifest
-  var res = await fetch('/scripts/manifest.json')
-  scriptManifest = await res.json()
-  return scriptManifest
+function getManifest() {
+  if (scriptManifest) return Promise.resolve(scriptManifest)
+  return fetch('/scripts/manifest.json').then(function(res) {
+    scriptManifest = res.ok ? res.json() : {}
+    return scriptManifest
+  })
+}
+
+function getModules() {
+  if (moduleManifest) return Promise.resolve(moduleManifest)
+  return fetch('/scripts/modules.json').then(function(res) {
+    moduleManifest = res.ok ? res.json() : {}
+    return moduleManifest
+  }).catch(function() {
+    moduleManifest = {}
+    return moduleManifest
+  })
 }
 
 function loadScript(src) {
@@ -124,6 +174,62 @@ function loadScript(src) {
     document.head.appendChild(s)
   })
 }
+
+/* Load a wrapped module file into a given window/document and return the
+ * registered function. Loading is registration; invocation is separate,
+ * which is what lets us pass (globals, v, arg) per tape step. */
+async function loadModuleInto(win, doc, key, src) {
+  if (!win.__qrx_mod[key]) {
+    var s = doc.createElement('script')
+    s.src = '/' + src
+    doc.head.appendChild(s)
+    await new Promise(function(r) { s.onload = r; s.onerror = r })
+  }
+  return win.__qrx_mod[key]
+}
+
+/* Invoke a kernel module in the MAIN window.
+ * fn.call(window, window, v, arg) reproduces the kernel's
+ * (new Function(G,'v','arg',code))(this,v,val) exactly. */
+async function runModule(key, v, arg) {
+  var mods = await getModules()
+  var src = mods[key]
+  if (!src) return undefined
+  if (!loadedModules[src]) {
+    await loadScript('/' + src)   /* registers window.__qrx_mod[key] */
+    loadedModules[src] = true
+  }
+  var fn = window.__qrx_mod[key]
+  return fn ? await fn.call(window, window, v, arg) : undefined
+}
+
+/* ---- kernel compatibility shims ----------------------------------------
+ * Wrapped modules were written for the kernel's new Function(G,'v','arg')
+ * convention: v and arg arrive as parameters, but every other bare
+ * identifier (read, write, filename, hydrate, ...) resolves through the
+ * scope chain to window — so they must exist as window globals. */
+
+window.filename = 'main'
+
+window.read = async function(k, nsName) {
+  var db = await openDB(nsName || 'main')
+  var v = await dbGet(db, k)
+  if (v === undefined || v === '') {
+    try {
+      var r = await fetch('/data/' + (nsName || 'main') + '/' + k)
+      if (r.ok) v = await r.text()
+    } catch(e) {}
+  }
+  return v
+}
+
+window.write = async function(v, k, nsName) {
+  return dbPut(await openDB(nsName || 'main'), k || window.filename, v)
+}
+
+/* CSP blocks inline scripts, so on Reddit hydrate() can only inject
+ * markup — executable behavior arrives via modules/manifest scripts. */
+window.hydrate = function(h) { A.innerHTML = h }
 
 async function seedIndexedDB(manifest) {
   var nsMap = {}
@@ -179,9 +285,6 @@ async function seedIndexedDB(manifest) {
   }
 }
 
-/* Rewrite iframe src: /main#bundle → /#bundle
- * Devvit static server only knows index.html at root. */
-
 async function run() {
   /* If we're inside a Reddit post, check for a stored hash and apply it
    * before the kernel boots. Falls back silently if not in a post context. */
@@ -198,9 +301,12 @@ async function run() {
   }
 
   var hash = location.hash.slice(1) || 'main'
-  var parts = hash.split('?')
-  var name = parts[0]
-  var params = parts[1] || ''
+  var qIdx = hash.indexOf('?')
+  var name = qIdx === -1 ? hash : hash.slice(0, qIdx)
+  var params = qIdx === -1 ? '' : hash.slice(qIdx + 1)
+
+  /* the kernel sets filename before running boot/* and the tape */
+  window.filename = name
 
   setStatus('running...')
   try {
@@ -220,6 +326,30 @@ async function run() {
     var data = await res.json()
     A.innerHTML = data.html || ''
 
+    /* Boot modules run on EVERY navigation, like the kernel's boot/* loop.
+     * (Raw-JS boot files like boot/windows/default are modules now —
+     * previously they had no execution path on Reddit at all.) */
+    var mods = await getModules()
+    var bootModKeys = Object.keys(mods).filter(function(k) { return k.indexOf('/boot/') !== -1 })
+    for (var bm = 0; bm < bootModKeys.length; bm++) {
+      try { await runModule(bootModKeys[bm], undefined, undefined) }
+      catch(e) { console.error('[QRX boot]', bootModKeys[bm], e) }
+    }
+
+    /* Tape-deferred scripts in tape order, chaining the accumulator like
+     * the kernel: a module's return value becomes v for the next step. */
+    var v2 = data.html || ''
+    var dirty = false
+    var clientScripts = data.clientScripts || []
+    for (var cs = 0; cs < clientScripts.length; cs++) {
+      try {
+        var r2 = await runModule(clientScripts[cs].key, v2, clientScripts[cs].arg)
+        if (r2 !== undefined) { v2 = String(r2); dirty = true }
+      } catch(e) { console.error('[QRX mod]', clientScripts[cs].key, e) }
+    }
+    if (dirty) A.innerHTML = v2
+
+    /* Boot inline scripts extracted from HTML boot pages */
     var bootKeys = Object.keys(manifest).filter(function(k) { return k.includes('/boot/') })
     for (var b = 0; b < bootKeys.length; b++) {
       var bootScripts = manifest[bootKeys[b]] || []
@@ -228,6 +358,7 @@ async function run() {
       }
     }
 
+    /* Page inline scripts extracted from the current HTML page */
     var key = 'main/' + name
     var scripts = manifest[key] || []
     for (var i = 0; i < scripts.length; i++) {

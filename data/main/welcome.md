@@ -1,2 +1,2 @@
-<h1>ORI Sensemaker</h1>
-(coming soon)
+<h1>Welcome to r/Hyperprompting!</h1>
+this is not an image, have a click around!
