@@ -1,6 +1,13 @@
-# Cyborgmorphism - On physically extended reality creatures
-
-
+---
+title: Cyborgmorphism - On physically extended reality creatures
+subreddit: r/labofoz
+flair: Cyborgism
+media:
+    - GIF of strandbeests at the beech walking autonomously
+    - GIF of "Floating Companions" with a whale blimp floating around a university with students petting it
+    - PHOTO of 1920's Tony Sarg illustration showing blimps in a fair
+source: https://www.reddit.com/r/labofoz/comments/1vmqc1l/cyborgmorphism_on_physically_extended_reality/
+---
 
 in the future it is likely that we will be able to physically interact with extended reality without haptics or neuro interfaces by simply projection mapping onto inexpensive automotons, robots, blimps, and drones
 
