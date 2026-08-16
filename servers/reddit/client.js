@@ -294,7 +294,12 @@ async function run() {
       if (ctxRes.ok) {
         var ctxData = await ctxRes.json()
         if (ctxData.hash) {
+          /* Setting location.hash fires onhashchange, which calls run()
+           * again. RETURN here so this invocation doesn't also continue —
+           * otherwise the entire tape (boot + modules) executes twice and
+           * every window opens twice. */
           location.hash = ctxData.hash
+          return
         }
       }
     } catch(e) {}
@@ -326,9 +331,7 @@ async function run() {
     var data = await res.json()
     A.innerHTML = data.html || ''
 
-    /* Boot modules run on EVERY navigation, like the kernel's boot/* loop.
-     * (Raw-JS boot files like boot/windows/default are modules now —
-     * previously they had no execution path on Reddit at all.) */
+    /* Boot modules run on EVERY navigation, like the kernel's boot/* loop. */
     var mods = await getModules()
     var bootModKeys = Object.keys(mods).filter(function(k) { return k.indexOf('/boot/') !== -1 })
     for (var bm = 0; bm < bootModKeys.length; bm++) {
