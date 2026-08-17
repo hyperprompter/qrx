@@ -8,6 +8,11 @@ import { VitePWA } from 'vite-plugin-pwa'
 const __dirname = resolve()
 
 /**
+ * Safely serialize a string for direct injection into an inline script.
+ */
+const jsString = value => JSON.stringify(value).replace(/</g, '\\u003c')
+
+/**
  * Minifies the final index.html after all transforms.
  * Also prepends a minimal <head> stub so VitePWA can find it during its
  * pipeline scan — without this, VitePWA warns and skips SW/manifest injection
@@ -254,11 +259,12 @@ function buildStaticBootloader(base) {
  *   1. Reads the built index.html (now has full doc structure + PWA injections).
  *   2. Extracts the bare kernel from inside <body> for QR code generation.
  *   3. Generates a QR code from the bare kernel — must be as small as possible.
- *   4. Appends the appropriate bootloader into the existing <body>,
+ *   4. Injects the optional QRX_URL sync endpoint.
+ *   5. Appends the appropriate bootloader into the existing <body>,
  *      chosen based on whether GITHUB_PAGES env var is set.
- *   5. Writes the final file.
+ *   6. Writes the final file.
  */
-const qrCodePlugin = (base, isGitHubPages) => ({
+const qrCodePlugin = (base, isGitHubPages, qrxUrl) => ({
   name: 'qr-code-plugin',
   async writeBundle() {
     const filePath = resolve(__dirname, 'dist/index.html')
@@ -275,6 +281,8 @@ const qrCodePlugin = (base, isGitHubPages) => ({
       margin: 1,
     })
 
+    const qrxUrlInject = `<script>window.QRX_URL=${jsString(qrxUrl)};</script>`
+
     const baseInject = isGitHubPages ? `<script>
       BASE='${base}';
       (function(){
@@ -284,11 +292,12 @@ const qrCodePlugin = (base, isGitHubPages) => ({
         history.replaceState(null, '', p + location.hash);
       })();
     </script>` : ''
+
     const bootloader = isGitHubPages
       ? buildStaticBootloader(base)
       : buildServerBootloader(base)
 
-    const final = html.replace('</body>', baseInject + bootloader.replace(/\s+/g, ' ') + '</body>')
+    const final = html.replace('</body>', baseInject + qrxUrlInject + bootloader.replace(/\s+/g, ' ') + '</body>')
     writeFileSync(filePath, final)
 
     // GitHub Pages SPA routing: GitHub Pages 404s any path that isn't a real
@@ -319,6 +328,7 @@ export default defineConfig(({ mode }) => {
   const baseUrl = process.env.BASE_URL || env.BASE_URL || '/'
   const isGitHubPages = process.env.GITHUB_PAGES === 'true'
   const isReddit = process.env.REDDIT_BUILD === 'true'
+  const qrxUrl = process.env.QRX_URL || env.QRX_URL || ''
 
   if (isGitHubPages) {
     console.log('\n  Building for GitHub Pages (static bootloader)\n')
@@ -357,7 +367,7 @@ export default defineConfig(({ mode }) => {
       }),
       ]),
       htmlMinifierPlugin(),
-      qrCodePlugin(baseUrl, isGitHubPages),
+      qrCodePlugin(baseUrl, isGitHubPages, qrxUrl),
     ],
     build: {
       minify: 'terser',
