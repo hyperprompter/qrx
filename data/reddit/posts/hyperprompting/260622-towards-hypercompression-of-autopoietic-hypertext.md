@@ -1,8 +1,15 @@
-# [Theory Crafting] Towards Hypercompression of Autopoietic Hypertext
+---
+title: [Theory Crafting] Towards Hypercompression of Autopoietic Hypertext
+subreddit: r/hyprprompting
+flair: theory crafting
+reshare:
+    from:
+        title: I Made DOOM Run Inside a QR Code and wrote a Custom compression Algorithm for it that got Cited by a NASA Scientist.
+        source: https://www.reddit.com/r/computerscience/comments/1m95fhn/i_made_doom_run_inside_a_qr_code_and_wrote_a/
+source: https://www.reddit.com/r/Hyperprompting/comments/1uctp8e/theory_crafting_towards_hypercompression_of/
+---
 
-https://www.reddit.com/r/Hyperprompting/comments/1uctp8e/theory_crafting_towards_hypercompression_of/
-
-<reply>
+<comments>
 qrcodes can store up to 2953 bytes and these bytes can represent anything
 
 commonly they are used to create standard web hyperlinks (you scan it once and your browser takes you somewhere), but the bitstream can really be anything including emails, phone numbers, images, and even executable files as we previously explored with Data URIs: https://www.reddit.com/r/Hyperprompting/comments/1uc5rgm/tutorial_how_to_llmwrap_serverless_hyperlinks_qr/
@@ -18,4 +25,4 @@ semantic compression can compress hypertext: slang compresses language and cultu
 semantically compressed hypertext is still hypertext, and hypertext - whatever its form - can be further compressed algorithmically and then decrompressed through browser APIs like DecompressionStream: https://developer.mozilla.org/en-US/docs/Web/API/DecompressionStream
 
 what is the upper limit to how much information a qr code lengthed hyperprompt can contain?
-</reply>
+</comments>
