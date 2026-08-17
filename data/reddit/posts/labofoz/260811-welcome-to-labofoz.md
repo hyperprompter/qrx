@@ -1,4 +1,11 @@
-# Towards building a radio based, decentralized commune...welcome to r/LabOfOz!
+---
+title: Towards building a radio based, decentralized commune...welcome to r/LabOfOz!
+subreddit: r/labofoz
+flair: devlog
+media:
+    - PHOTO my grimoire (binder prototype with index.html qrx hyperpropmting kernal, wolfram rule 30 graphic, and aricebo message as aesthetic), dummy 13 3d printed model, and an assortment of electronic components like e-ink, esp32s, lora radio, solar modules
+source: https://www.reddit.com/r/labofoz/comments/1vlr2i3/towards_building_a_radio_based_decentralized/
+---
 
 HUZZAH!
 

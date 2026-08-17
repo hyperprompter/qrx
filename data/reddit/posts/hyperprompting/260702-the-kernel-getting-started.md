@@ -1,3 +1,15 @@
+---
+title: Hyperprompting Kernel v26.07.02 - Getting Started
+subreddit: r/hyperprompting
+flair: tutorial
+media:
+    - SCREENSHOT of the windows 9x desktop simulator showing many windows open include minesweeper, readme manual, chat, a hypertext graph visualizer, and the qrcode source
+    - PHOTO pov holding 2 Windows 9x installer zines with QR codes on them, in the backdrop is a dekstop monitor showing the win9x simulator
+    - VIDEO MS Powerpoint 1995 with a slide "Automating a farm with robots", with a giant qrcode, and several cliparts of people engaging in business. then i hold up a phone in pov between the camera and screen to scan the qrcode, then i show that the qrcode contains index.html kernel
+    - SCREENSHOT of a plain win9x desktop simulator loading itself in iframes 3 deep, showing that it is a recursive quine
+source: https://www.reddit.com/r/Hyperprompting/comments/1ulprhb/hyperprompting_kernel_v260702_getting_started/
+---
+
 previously we explored "serverless" generative Data URI-based hyperlinks: [https://www.reddit.com/r/Hyperprompting/comments/1uc5rgm/tutorial\_how\_to\_llmwrap\_serverless\_hyperlinks\_qr/](https://www.reddit.com/r/Hyperprompting/comments/1uc5rgm/tutorial_how_to_llmwrap_serverless_hyperlinks_qr/)
 
 however Data URIs run in a highly sandboxed environment lacking many browser APIs including local storage persistence...for that we need an actual HTML file that can be opened in a browser

@@ -1,3 +1,20 @@
+---
+title: What is a Dataverse
+subreddit: r/hyperprompting
+flair: theory crafting
+media: 
+    - GIF
+        - LEFT the Genesis of a git repository thru the gource visualizer (shows repository as graph with people zapping files in/out of existence). this represents a digital universe (dataverse)
+        - RIGHT animation of the birth of the universe (big bang)
+    - GIF knowledge graph made to look like a biological cell (thoughtform protoplast) undergoing various stages of growth
+    - GIF slime mold growing and pruning once a network of food sources are made
+    - GIF showing how all 3 types of graphs from other images relate:
+        - LEFT mature stage of repository thru gource, undergoing large swaths of seed -> grow -> prune cycles
+        - CENTER thoughtform protoplast knowledge graph
+        - RIGHT slime mold
+source: https://www.reddit.com/r/Hyperprompting/comments/1vbwiu6/what_is_a_dataverse/
+---
+
 SLIDE 1 - GENESIS
 first there is nothing and then there is a Commitment
 within a Digital Universe this can happen as a git commit && within the Physical Universe this can happen as a verbal commitment ("let there be light"), an inflationary one ("big bang"), or thru many other ways depending on your tradition or Observation
