@@ -1,0 +1,1 @@
+/* Updates your internal scratchpad plan. Use this to cross off items or write notes to yourself for the next loop iteration. Input: Your new plan text. */ window.agentPlan = INPUT; return "OBSERVATION: Plan updated successfully."; 

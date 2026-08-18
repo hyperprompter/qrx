@@ -1,0 +1,9 @@
+#config?e&w&p=TASK: output HTML and SCRIPT for a localStorage editor
+  - two columns, 1 for key and 1 for value
+  - immediately loop through all existing localStorage keys and create a row for each key
+  - just output the key field as inline text
+  - but make the value field a TEXTAREA
+    - on textarea edit update that localStorage key
+  - add delete row and rename key buttons
+  - add an add row button
+&w

@@ -1,0 +1,27 @@
+
+#windows?e&w&c=boot/windows/default&p=TASK: output pure JavaScript only, no HTML, no script tags, no markdown.
+ 
+The CONTEXT shows the exact pattern to follow. Adapt it so instead of opening one hardcoded file, it parses the global variable 'arg'.
+ 
+'arg' is a pipe-separated list of window specs, for example: chat|edit{max}|run{50}
+ 
+Changes to make:
+- do NOT copy the idempotency guard from CONTEXT
+- before registering the listener, remove any previous one: if (window._windowsHandler) window.removeEventListener('main:ready', window._windowsHandler);
+- assign the listener to window._windowsHandler then pass that reference to addEventListener
+- split arg by pipe to get each spec
+- for each spec, use a regex to strip a trailing {modifier} from the end of the string
+  path is everything before the brace, modifier is the text inside, both trimmed
+- before the loop, count existing .window elements excluding #window-template, store as baseline
+- call window.openFileWindow(path) for each spec in order
+- after the loop use a single setTimeout of 100ms to apply modifiers
+- inside setTimeout query all .window elements excluding #window-template
+  new windows begin at the baseline index, match each to its spec by offset
+  'max': click button[aria-label="Maximize"] inside that window element
+  'min': click button[aria-label="Minimize"] inside that window element
+  a numeric string: parse as integer n, set style.width to (n * window.innerWidth / 100) and style.height to (n * (window.innerHeight - 28) / 100), both as px strings
+  no modifier: skip
+- keep the filename === 'main' guard and the main:ready listener structure exactly as shown in CONTEXT
+- use var for all variables
+&w
+ 

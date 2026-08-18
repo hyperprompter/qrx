@@ -1,0 +1,22 @@
+#mesh/join?e&w&p=TASK: Generate an HTML5 Bluetooth Mesh Chat with DEEP DEBUGGING
+  - CONFIG:
+    - Service: 4fafc201-1fb5-459e-8fcc-c5c9c331914b
+    - Char: beb5483e-36e1-4688-b7f5-ea07361b26a8
+    - NamePrefix: QRx
+  - UI:
+    - Dark mode.
+    - Connection Panel: "Connect" button + Status Log
+    - Chat Panel: Messages area + Input + Send
+  - LOGIC:
+    - 1. REQUEST: navigator.bluetooth.requestDevice({ filters: [{ namePrefix: NamePrefix }], optionalServices: [Service] })
+    - 2. CONNECT: server.connect()
+    - 3. SERVICE: server.getPrimaryService(Service)
+    - 4. DEBUG (CRITICAL):
+       - If service.getCharacteristic(Char) FAILS:
+       - Run service.getCharacteristics() to list ALL available UUIDs in the log
+       - Throw error "Mismatch: Expected [Char] but found [List]"
+    - 5. NOTIFY: startNotifications() + addEventListener
+  - MESH HANDLING:
+    - 100 char chunks, JSON format {"id","i","n","d"}, 50ms delay
+  - Do not use markdown formatting
+&w

@@ -1,0 +1,7 @@
+#boot/errors?e&w&p=TASK: output pure javascript that monitors for javascript errors and toasts a message
+  - at the very top of the script add an idempotency guard: if(window._bootErrors)return; window._bootErrors=true;
+  - set a crazy high z-index (this should show even above all others)
+  - click to make disappear
+  - allow stacking multiple messages
+  - just simple styles with position fixed
+&w

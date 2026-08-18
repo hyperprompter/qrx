@@ -1,0 +1,14 @@
+var parts = INPUT.split("|");
+if (parts.length < 2) { return "Error: Invalid input format. Expected 'namespace#filename | Extraction instructions'."; }
+var fileInfo = parts[0].trim();
+var instructions = parts[1].trim();
+var hashChar = String.fromCharCode(0x23);
+var fileInfoParts = fileInfo.split(hashChar);
+var database = fileInfoParts[0];
+var key = fileInfoParts[1];
+var content = await read(key, database);
+if (!content) { return "Error: File content not found."; }
+content = content.slice(0, 25000);
+var prompt = instructions + "\n\nSTRICT MANDATE: Output ONLY the extracted data exactly as requested. Do not include any conversational filler, introductions, explanations, markdown formatting, or additional text.";
+var result = await window.gen(content, prompt);
+return result.trim();

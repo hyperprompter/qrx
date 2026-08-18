@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+    }
+    th, td {
+        border: 1px solid #000;
+        padding: 10px;
+        vertical-align: top;
+    }
+    textarea {
+        width: 100%;
+        box-sizing: border-box;
+        resize: vertical;
+        min-height: 50px;
+    }
+    .actions {
+        margin-top: 10px;
+        display: block;
+    }
+</style>
+</head>
+<body>
+
+<button id="add-row-btn">Add Row</button>
+
+<table id="ls-table">
+    <thead>
+        <tr>
+            <th>Key</th>
+            <th>Value</th>
+        </tr>
+    </thead>
+    <tbody id="ls-tbody"></tbody>
+</table>
+
+<script>
+    const tbody = document.getElementById('ls-tbody');
+    const addRowBtn = document.getElementById('add-row-btn');
+
+    function createRow(key, value) {
+        const tr = document.createElement('tr');
+
+        const tdKey = document.createElement('td');
+        const keyText = document.createElement('span');
+        keyText.textContent = key;
+        
+        const actionDiv = document.createElement('div');
+        actionDiv.className = 'actions';
+
+        const renameBtn = document.createElement('button');
+        renameBtn.textContent = 'Rename';
+        renameBtn.onclick = function() {
+            const currentKey = keyText.textContent;
+            const newKey = prompt('Rename key:', currentKey);
+            if (newKey && newKey !== currentKey) {
+                const val = localStorage.getItem(currentKey);
+                localStorage.setItem(newKey, val);
+                localStorage.removeItem(currentKey);
+                keyText.textContent = newKey;
+            }
+        };
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.onclick = function() {
+            localStorage.removeItem(keyText.textContent);
+            tr.remove();
+        };
+
+        actionDiv.appendChild(renameBtn);
+        actionDiv.appendChild(deleteBtn);
+
+        tdKey.appendChild(keyText);
+        tdKey.appendChild(actionDiv);
+
+        const tdValue = document.createElement('td');
+        const textarea = document.createElement('textarea');
+        textarea.value = value;
+        textarea.oninput = function() {
+            localStorage.setItem(keyText.textContent, textarea.value);
+        };
+
+        tdValue.appendChild(textarea);
+
+        tr.appendChild(tdKey);
+        tr.appendChild(tdValue);
+        tbody.appendChild(tr);
+    }
+
+    function init() {
+        tbody.innerHTML = '';
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            const value = localStorage.getItem(key);
+            createRow(key, value);
+        }
+    }
+
+    addRowBtn.onclick = function() {
+        const newKey = prompt('Enter new key:');
+        if (newKey) {
+            if (localStorage.getItem(newKey) === null) {
+                localStorage.setItem(newKey, '');
+                createRow(newKey, '');
+            } else {
+                alert('Key already exists');
+            }
+        }
+    };
+
+    init();
+</script>
+
+</body>
+</html>

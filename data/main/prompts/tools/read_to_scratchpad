@@ -1,0 +1,9 @@
+#tools/read_to_scratchpad?a=0&e=/* Reads a file into your Working Memory (RAM). It does NOT return the text to you, it returns a pointer. Input MUST be namespace\x23filename or just filename. */
+var d = null; var k = INPUT.trim();
+if (k.includes('\x23')) { var p = k.split('\x23'); d = p[0]; k = p[1]; }
+var content = await read(k, d || db);
+if (!content) return "OBSERVATION: File not found.";
+if (typeof window.agentScratchpad === 'undefined') window.agentScratchpad = {};
+window.agentScratchpad[INPUT.trim()] = content;
+return "OBSERVATION: Success. " %2B content.length %2B " bytes stored in Working Memory at pointer $SCRATCHPAD['" %2B INPUT.trim() %2B "'].";
+&w

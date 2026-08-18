@@ -1,0 +1,44 @@
+#apps/paint?e&w&a=1&p=TASK: generate an HTML wireframe of MS Paint (without the chrome window, just the internal app)
+  body
+    .flexbox
+      aside
+        button#template-tool.tool[data-mode="brush|eraser|etc"]
+      main
+        canvas
+      aside
+        #template-layer
+        #layers
+        button#layer-up button#layer-down button#layer-new button#layer-delete
+      footer
+        button#template-color[data-color="#hex"]
+
+  - templates are hidden by default
+  - no html/head tags just those above
+  - style tag for styles no inline
+  - NO JAVASCRIPT YET this is just the skeleton
+  - use IDs and classnames exactly
+  - no window/title/chrome/menu, just the paint app itself
+&w&a=1&p=TASK: Generate a <script> that fills the footer with 16 default colors and a custom color picker
+  - store the color in [data-color]
+  - when a color is pressed set a global `color` variable to it
+  - also handle a custom color picker
+  - do not handle drawing yet only focus on the colors
+  - ONLY generate this <script> do not return the above code!
+&w&a=1&p=TASK: Generate a <script> that handles layers
+  - show preview of the layer
+  - clicking on a layer highlights it and sets it as the active layer
+  - move layer up/down with buttons
+  - handle delete a layer button
+  - handle add layer button by inserting a layer above current layer
+&w&a=1&p=TASK: Generate a <script> that clones template tool with following
+  - sets a global `mode` that stores the [data-mode] of the clicked button
+  - when user left clicks on canvas, the mode callback is run
+  - create a mode for
+    - painting (based on the selected color, default is #000)
+      - paint on the canvas layer when user clicks/touches canvas
+    - erasing
+      - erase from the canvas layer when user clicks/touches
+    - slider for brush/eraser size with preview of the size
+  - dont work on anything just code these 2 modes and slider
+  - ONLY generate this <script> do not return the above code!
+&w

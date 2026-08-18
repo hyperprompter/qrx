@@ -1,0 +1,246 @@
+<style>
+  .app-wrapper { display: flex; flex-direction: column; height: 100vh; margin: 0; box-sizing: border-box; font-family: sans-serif; }
+  .header { display: flex; gap: 10px; padding: 10px; background: #f5f5f5; border-bottom: 1px solid #ccc; }
+  .split-view { display: flex; flex-direction: row; flex: 1; overflow: hidden; }
+  .left-panel { width: 50%; overflow-y: auto; box-sizing: border-box; border-right: 1px solid #ccc; padding: 10px; }
+  .right-panel { width: 50%; overflow-y: auto; box-sizing: border-box; padding: 10px; }
+  .footer { display: flex; gap: 10px; padding: 10px; background: #f5f5f5; border-top: 1px solid #ccc; }
+  #user-input { flex: 1; resize: vertical; min-height: 50px; }
+  #submit-btn, #stop-btn { padding: 0 20px; cursor: pointer; }
+</style>
+<div class="app-wrapper">
+  <div class="header">
+    <input type="text" id="model-name" name="model-name" placeholder="Model Name">
+    <input type="text" id="host" name="host" placeholder="Host">
+    <input type="password" id="apikey" name="apikey" placeholder="API Key">
+  </div>
+  <div class="split-view">
+    <div class="left-panel"></div>
+    <div class="right-panel"></div>
+  </div>
+  <div class="footer">
+    <textarea id="user-input"></textarea>
+    <button id="submit-btn" type="button">Submit</button>
+    <button id="stop-btn" type="button">Stop</button>
+  </div>
+</div><script>
+  var storedModel = localStorage.getItem('m');
+  if (storedModel) {
+    document.getElementById('model-name').value = storedModel;
+  }
+  
+  var storedHost = localStorage.getItem('h');
+  if (storedHost) {
+    document.getElementById('host').value = storedHost;
+  }
+  
+  var storedKey = localStorage.getItem('k');
+  if (storedKey) {
+    document.getElementById('apikey').value = storedKey;
+  }
+
+  window.chatHistory = [];
+  window.agentScratchpad = {};
+  window.agentPlan = "Pending initialization.";
+  window.stopAgent = false;
+</script><script>
+  function printLeft(text, isObservation) {
+    var div = document.createElement('div');
+    div.style.whiteSpace = 'pre-wrap';
+    if (isObservation) {
+      div.style.color = '#aa5500';
+    }
+    var textNode = document.createTextNode(text);
+    div.appendChild(textNode);
+    var leftPanel = document.querySelector('.left-panel');
+    leftPanel.appendChild(div);
+    leftPanel.scrollTop = leftPanel.scrollHeight;
+  }
+
+  function printRight(text) {
+    var div = document.createElement('div');
+    div.style.whiteSpace = 'pre-wrap';
+    div.style.fontWeight = 'bold';
+    var textNode = document.createTextNode(text);
+    div.appendChild(textNode);
+    var rightPanel = document.querySelector('.right-panel');
+    rightPanel.appendChild(div);
+    rightPanel.scrollTop = rightPanel.scrollHeight;
+  }
+</script><script>
+window.getActiveToolsString = async function() {
+  var lines = [];
+  var matchedKeys = await keys(IDBKeyRange.bound('tool', 'tool\uffff'));
+  for (var i = 0; i < matchedKeys.length; i++) {
+    var c = await read(matchedKeys[i]);
+    var desc = "No description";
+    if (c && c.includes("/*")) {
+      desc = c.split("*/")[0].split("/*")[1].trim();
+    }
+    lines.push(matchedKeys[i] + ' - ' + desc);
+  }
+  return lines.length > 0 ? lines.join('\n') : "No tools found.";
+};
+
+window.executeTool = async function(toolName, toolInput) {
+  try {
+    var code = await read(toolName);
+    if (!code && toolName.indexOf('tools/') !== 0) {
+      code = await read('tools/' + toolName);
+    }
+    if (!code) throw new Error("Tool not found.");
+    return await new Function('INPUT', 'return (async () => {' + code + '})()')(toolInput);
+  } catch (err) {
+    console.error("Tool Execution Failed:", err, "Code Evaluated:", code);
+    return "Tool Execution Error: " + err.message;
+  }
+};
+</script><script>
+window.fetchAI = async function(systemPrompt) {
+  var modelName = document.getElementById('model-name').value;
+  var host = document.getElementById('host').value;
+  var apikey = document.getElementById('apikey').value;
+
+  localStorage.setItem('m', modelName);
+  localStorage.setItem('h', host);
+  localStorage.setItem('k', apikey);
+
+  var messages = [
+    { role: 'system', content: systemPrompt }
+  ].concat(window.chatHistory);
+
+  var headers = {
+    'Content-Type': 'application/json'
+  };
+  
+  if (apikey) {
+    headers['Authorization'] = 'Bearer ' + apikey;
+  }
+
+  var bodyPayload = JSON.stringify({
+    model: modelName,
+    messages: messages,
+    stream: false
+  });
+
+  var response = await fetch(host, {
+    method: 'POST',
+    headers: headers,
+    body: bodyPayload
+  });
+
+  var data = await response.json();
+  return data.choices[0].message.content;
+};
+</script><script>
+window.parseAction = function(text) {
+  var regex = /<<ACTION:\s*([^>]+)>>\n([\s\S]*?)(?=<<|$)/;
+  var match = text.match(regex);
+  if (match) {
+    return { name: match[1].trim(), input: match[2].trim() };
+  }
+  return null;
+};
+
+window.parseAnswer = function(text) {
+  var regex = /<<ANSWER>>\n([\s\S]*?)(?=<<|$)/;
+  var match = text.match(regex);
+  if (match) {
+    return match[1];
+  }
+  return null;
+};
+</script><script>
+window.runAgent = async function(userMessage) {
+  window.agentScratchpad = {};
+  window.agentPlan = "Task started.";
+  printRight(userMessage);
+  window.chatHistory.push({ role: 'user', content: userMessage });
+  
+  var errorCount = 0;
+  while (true) {
+    try {
+      console.log("--- NEW AGENT LOOP START ---");
+      var toolsString = await window.getActiveToolsString();
+      var inventory = Object.keys(window.agentScratchpad);
+      var invString = "";
+      if (inventory.length > 0) {
+        for (var i = 0; i < inventory.length; i++) {
+          invString += "=== MEMORY POINTER: " + inventory[i] + " ===\n" + window.agentScratchpad[inventory[i]] + "\n\n";
+        }
+      } else {
+        invString = "[Empty]";
+      }
+      
+      var systemPrompt = "You are an autonomous AI operating in a pointer-based memory architecture. Do not hallucinate file contents.\n\nCRITICAL RULE: DO NOT USE XML. NEVER output <tool_call> or <function> tags. You must use the EXACT syntax <<ACTION: tool_name>> and <<ANSWER>>.\n\nOUTPUT FORMAT:\nTo use a tool: <<ACTION: tool_name>>\ninput_data\n\nTo finish: <<ANSWER>>\nfinal_message\n\nCURRENT PLAN:\n" + window.agentPlan + "\n\nWORKING MEMORY CONTENTS:\n" + invString + "\n\nAVAILABLE TOOLS:\n" + toolsString;
+      
+      console.log("1. System Prompt length (bytes):", systemPrompt.length);
+      
+      if (window.stopAgent) {
+        systemPrompt += "\nUSER OVERRIDE: Stop executing tools. Output <<ANSWER>>.";
+        window.stopAgent = false;
+      }
+      
+      console.log("2. Fetching AI...");
+      var aiResponse = await window.fetchAI(systemPrompt);
+      console.log("3. AI Raw Response:\n", aiResponse);
+      
+      printLeft(aiResponse, false);
+      window.chatHistory.push({ role: 'assistant', content: aiResponse });
+      
+      var action = window.parseAction(aiResponse);
+      if (action) {
+        console.log("4. Executing Action:", action);
+        var result = await window.executeTool(action.name, action.input);
+        console.log("5. Tool Result:", result);
+        printLeft("OBSERVATION:\n" + result, true);
+        window.chatHistory.push({ role: 'user', content: "OBSERVATION:\n" + result });
+        continue;
+      }
+      
+      var answer = window.parseAnswer(aiResponse);
+      if (answer) {
+        console.log("4. Loop Finished. Answer:", answer);
+        printRight(answer);
+        break;
+      }
+      
+      console.warn("4. Syntax Fallback Triggered. AI failed to use <<ACTION>> or <<ANSWER>>.");
+      window.chatHistory.push({ role: 'user', content: 'SYSTEM WARNING: You MUST output <<ACTION: name>> or <<ANSWER>>. NO XML. DO NOT USE <tool_call> tags.' });
+      continue;
+      
+    } catch (e) {
+      errorCount++;
+      console.error("Agent Loop Error:", e);
+      printLeft("Error: " + e.message, true);
+      if (errorCount >= 7) {
+        break;
+      }
+    }
+  }
+};
+</script><script>
+  var submitBtn = document.getElementById('submit-btn');
+  var stopBtn = document.getElementById('stop-btn');
+  var userInput = document.getElementById('user-input');
+
+  function handleSubmit(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    if (userInput.value.trim() !== '') {
+      window.runAgent(userInput.value);
+      userInput.value = '';
+    }
+  }
+
+  submitBtn.addEventListener('click', handleSubmit);
+
+  userInput.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') {
+      handleSubmit(e);
+    }
+  });
+
+  stopBtn.addEventListener('click', function() {
+    window.stopAgent = true;
+  });
+</script>

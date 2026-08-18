@@ -1,0 +1,20 @@
+#tools/write?a=0&e=/* Saves data to dataverse. Input MUST be JSON array */
+try {
+  let args = JSON.parse(INPUT);
+  let path = args[0].split('\x23');
+  let f = path[0];
+  let d = db;
+  if (path.length > 1) { 
+    d = await getDB(path[0]); 
+    f = path[1]; 
+  }
+  let val = args[1];
+  if (typeof val !== 'string') {
+    val = JSON.stringify(val, null, 2);
+  }
+  await write(val, f, d);
+  return `Saved to ${args[0]}`;
+} catch(e) { 
+  return `Write failed: ${e.message}`; 
+}
+&w

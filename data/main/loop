@@ -1,0 +1,23 @@
+return (async function() {
+var attempts = parseInt(sessionStorage.getItem('wiggum_' + filename), 10) || 0;
+if (attempts >= 3) {
+sessionStorage.removeItem('wiggum_' + filename);
+sessionStorage.removeItem('critique_' + filename);
+return v;
+}
+var evaluatorPrompt = "Review the code in 'v'. Respond with EXACTLY 'TRUE' or 'FALSE', followed by a pipe character '|', followed by your reasoning.";
+var verdict = await gen("", evaluatorPrompt + "\n\nCODE TO REVIEW:\n" + v);
+var lowerVerdict = verdict.toLowerCase().trim();
+if (lowerVerdict.startsWith('true') || lowerVerdict.startsWith('1') || lowerVerdict.startsWith('yes') || lowerVerdict.startsWith('t')) {
+sessionStorage.removeItem('wiggum_' + filename);
+sessionStorage.removeItem('critique_' + filename);
+return v;
+} else {
+sessionStorage.setItem('wiggum_' + filename, attempts + 1);
+var pipeIndex = verdict.indexOf('|');
+var reasoning = pipeIndex !== -1 ? verdict.substring(pipeIndex + 1).trim() : verdict;
+sessionStorage.setItem('critique_' + filename, reasoning);
+location.reload();
+return new Promise(function(){});
+}
+})();

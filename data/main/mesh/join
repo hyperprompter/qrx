@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bluetooth Mesh Chat</title>
+<style>
+    :root {
+        --bg-color: #121212;
+        --panel-bg: #1e1e1e;
+        --text-color: #e0e0e0;
+        --accent: #bb86fc;
+        --border: #333;
+        --log-bg: #000;
+        --sent-color: #03dac6;
+        --rcvd-color: #cf6679;
+    }
+    body {
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        font-family: 'Courier New', monospace;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        box-sizing: border-box;
+    }
+    h3 { margin-top: 0; }
+    button {
+        background: var(--panel-bg);
+        color: var(--accent);
+        border: 1px solid var(--accent);
+        padding: 10px 20px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: 0.2s;
+    }
+    button:hover {
+        background: var(--accent);
+        color: var(--bg-color);
+    }
+    input[type="text"] {
+        background: var(--log-bg);
+        border: 1px solid var(--border);
+        color: #fff;
+        padding: 10px;
+        flex-grow: 1;
+        margin-right: 10px;
+    }
+    #connection-panel {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+    }
+    #status-log {
+        background: var(--log-bg);
+        border: 1px solid var(--border);
+        height: 150px;
+        overflow-y: auto;
+        padding: 10px;
+        margin-top: 10px;
+        font-size: 12px;
+        white-space: pre-wrap;
+    }
+    #chat-panel {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        opacity: 0.5;
+        pointer-events: none;
+    }
+    #chat-panel.active {
+        opacity: 1;
+        pointer-events: all;
+    }
+    #messages-area {
+        background: var(--panel-bg);
+        border: 1px solid var(--border);
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 15px;
+        margin-bottom: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .input-area {
+        display: flex;
+    }
+    .log-entry { margin-bottom: 4px; }
+    .log-err { color: #ff5252; }
+    .log-suc { color: #69f0ae; }
+    .msg { padding: 8px 12px; border-radius: 4px; max-width: 80%; word-break: break-all; }
+    .msg.sent { align-self: flex-end; background: #333; border-left: 3px solid var(--sent-color); }
+    .msg.rcvd { align-self: flex-start; background: #333; border-left: 3px solid var(--rcvd-color); }
+</style>
+</head>
+<body>
+
+<div id="connection-panel">
+    <h3>Connection</h3>
+    <button id="btn-connect">Connect</button>
+    <div id="status-log"></div>
+</div>
+
+<div id="chat-panel">
+    <div id="messages-area"></div>
+    <div class="input-area">
+        <input type="text" id="msg-input" placeholder="Type a message...">
+        <button id="btn-send">Send</button>
+    </div>
+</div>
+
+<script>
+    const CONFIG = {
+        SERVICE: '4fafc201-1fb5-459e-8fcc-c5c9c331914b',
+        CHAR: 'beb5483e-36e1-4688-b7f5-ea07361b26a8',
+        PREFIX: 'QRx',
+        CHUNK_SIZE: 100, // Total packet size limit
+        DELAY: 50
+    };
+
+    const dom = {
+        btnConnect: document.getElementById('btn-connect'),
+        log: document.getElementById('status-log'),
+        chatPanel: document.getElementById('chat-panel'),
+        msgs: document.getElementById('messages-area'),
+        input: document.getElementById('msg-input'),
+        btnSend: document.getElementById('btn-send')
+    };
+
+    let bluetoothDevice;
+    let chatChar;
+
+    function log(msg, type = '') {
+        const div = document.createElement('div');
+        div.className = 'log-entry ' + type;
+        div.textContent = `> ${msg}`;
+        dom.log.appendChild(div);
+        dom.log.scrollTop = dom.log.scrollHeight;
+        console.log(msg);
+    }
+
+    function uiConnected() {
+        dom.chatPanel.classList.add('active');
+        dom.btnConnect.textContent = 'Connected';
+        dom.btnConnect.disabled = true;
+    }
+
+    function uiDisconnected() {
+        dom.chatPanel.classList.remove('active');
+        dom.btnConnect.textContent = 'Connect';
+        dom.btnConnect.disabled = false;
+        log('Disconnected.', 'log-err');
+    }
+
+    function appendMessage(text, source) {
+        const div = document.createElement('div');
+        div.className = `msg ${source}`;
+        div.textContent = text;
+        dom.msgs.appendChild(div);
+        dom.msgs.scrollTop = dom.msgs.scrollHeight;
+    }
+
+    dom.btnConnect.addEventListener('click', async () => {
+        try {
+            log('Requesting Bluetooth Device...');
+            bluetoothDevice = await navigator.bluetooth.requestDevice({
+                filters: [{ namePrefix: CONFIG.PREFIX }],
+                optionalServices: [CONFIG.SERVICE]
+            });
+
+            bluetoothDevice.addEventListener('gattserverdisconnected', uiDisconnected);
+
+            log('Connecting to GATT Server...');
+            const server = await bluetoothDevice.gatt.connect();
+
+            log(`Getting Service ${CONFIG.SERVICE}...`);
+            const service = await server.getPrimaryService(CONFIG.SERVICE);
+
+            log(`Getting Characteristic ${CONFIG.CHAR}...`);
+            try {
+                chatChar = await service.getCharacteristic(CONFIG.CHAR);
+            } catch (error) {
+                log('CRITICAL: Characteristic not found. Running Debug...', 'log-err');
+                try {
+                    const characteristics = await service.getCharacteristics();
+                    const uuidList = characteristics.map(c => c.uuid).join(', ');
+                    const errMsg = `Mismatch: Expected ${CONFIG.CHAR} but found [${uuidList}]`;
+                    throw new Error(errMsg);
+                } catch (debugErr) {
+                    throw debugErr;
+                }
+            }
+
+            log('Starting Notifications...');
+            await chatChar.startNotifications();
+            chatChar.addEventListener('characteristicvaluechanged', handleIncoming);
+
+            log('Setup Complete.', 'log-suc');
+            uiConnected();
+
+        } catch (error) {
+            log('ERROR: ' + error.message, 'log-err');
+        }
+    });
+
+    async function handleIncoming(event) {
+        const value = event.target.value;
+        const decoder = new TextDecoder('utf-8');
+        const text = decoder.decode(value);
+        log('RX: ' + text);
+
+        try {
+            const json = JSON.parse(text);
+            // Assuming simple display for now. In a real mesh, we would reassemble based on ID/Index
+            if (json.d) {
+                appendMessage(json.d, 'rcvd');
+            }
+        } catch (e) {
+            log('JSON Parse Error: ' + e.message, 'log-err');
+        }
+    }
+
+    dom.btnSend.addEventListener('click', async () => {
+        const text = dom.input.value.trim();
+        if (!text || !chatChar) return;
+
+        dom.input.value = '';
+        appendMessage(text, 'sent');
+
+        const msgId = Math.floor(Math.random() * 10000);
+        
+        // Calculate safe payload size. 
+        // JSON Wrapper approx: {"id":0000,"i":00,"n":00,"d":""} ~ 35 chars
+        // To be safe and keep under 100, we use 60 chars for data.
+        const maxPayload = 60;
+        const totalChunks = Math.ceil(text.length / maxPayload);
+
+        for (let i = 0; i < totalChunks; i++) {
+            const chunkData = text.substring(i * maxPayload, (i + 1) * maxPayload);
+            const packet = {
+                id: msgId,
+                i: i,
+                n: totalChunks,
+                d: chunkData
+            };
+            
+            const payload = JSON.stringify(packet);
+            await sendPacket(payload);
+            
+            if (i < totalChunks - 1) {
+                await new Promise(r => setTimeout(r, CONFIG.DELAY));
+            }
+        }
+    });
+
+    async function sendPacket(str) {
+        if (!chatChar) return;
+        try {
+            const encoder = new TextEncoder();
+            await chatChar.writeValue(encoder.encode(str));
+            log('TX: ' + str);
+        } catch (e) {
+            log('Write Error: ' + e.message, 'log-err');
+        }
+    }
+</script>
+</body>
+</html>

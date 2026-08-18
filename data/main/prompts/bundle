@@ -1,0 +1,23 @@
+#bundle?e&w&p=TASK: output HTML wireframe for an indexeddb manager
+  - elements
+    - header: "database name", button Load
+    - table with 3 columns, headers include: "Title", input[type=checkbox],  actionButtons
+  - no javascript
+&w&a=1&p=TASK: output SCRIPT tag that loads the indexeddb into the table
+  - `DB` is available at runtime and includes the current database name
+  - use that to recursively generate a row for each, using the key as the title
+  - wrap title in A tag with href=`/${DB}#${filename}` that opens in new tab
+  - a rename button that prompts() for new name (with default title)
+    - duplicate the new records value into the new names key
+    - delete the old record
+  - a copy button that prompts() for a new name (with default)
+  - a delete button with a confirm to delete that record
+  - only that nothing else
+&w&a=1&p=TASK: output SCRIPT tags that handles the checkbox column
+  - one that loads "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+  - clicking on the header checkbox sets the state for all other checkboxes
+  - inject a "build .zip" button
+    - on click create a file blob from every checked record
+  - export the .zip as ${DB}-YYMMDD-HHMM.zip
+  - include a index.json that simply contains an array of select keys (not values just keys)
+&w

@@ -1,0 +1,36 @@
+#edit?e&w&p=TASK: output HTML wireframe for a file editor
+  - fields: textarea (id="editor")
+  - components: status bar (id="status") with character count placeholder
+  - css: use flex to make textarea fill full height of window
+  - just HTML and CSS
+  - no javascript
+  - dont include html/head/body tags just the wireframe
+&w&a=1&p=TASK: output a SCRIPT tag that adds autosaving
+  - `read()`, `write()`, and `filename` are globally available
+  - use `read(filename).then(v => editor.value = v)` to load content into textarea#editor
+  - on textarea#editor input, debounce then `write(editor.value, filename)`
+  - listen for hashchange: call `read(filename).then(v => editor.value = v)` and focus editor
+  - run immediately, no DOMContentLoaded wait
+  - use var for all variables (mutable state)
+&w&a=1&p=TASK: output a SCRIPT tag that adds statusbar features
+  - listen for input events on textarea#editor
+  - calculate character count (value.length)
+  - calculate byte size (new Blob([value]).size)
+  - update innerText of div#status to show "Chars: X | Bytes: Y"
+  - use var for all variables
+  - run immediately, no DOMContentLoaded wait
+&w&a=1&p=TASK: output a SCRIPT tag that reloads the editor when edited from another browser tab
+  - use BroadcastChannel API with name 'qrx_edit'
+  - on textarea#editor input: channel.postMessage({filename: filename})
+  - on message event: if event.data.filename == filename, call read(filename).then(v => editor.value = v)
+  - ensure status#status updates after reload
+  - use var for all variables
+  - run immediately, no DOMContentLoaded wait
+&w&a=1&p=TASK: output a SCRIPT tag that initializes external mesh sync
+  - call the global function connectSync()
+  - wrap in <script>connectSync()</script>
+  - this enables cloud/offline sync via #boot/sync
+  - use var for all variables
+  - run immediately, no DOMContentLoaded wait
+&w&a=1&e=<style>#A {padding: 0 !important}</style>
+&w

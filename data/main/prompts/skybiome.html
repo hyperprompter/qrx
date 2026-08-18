@@ -1,0 +1,132 @@
+#skybiome.html?e&w&a=1&p=TASK: output raw HTML fragments and CSS only, wireframe for a bluesky particle-life simulation
+  - absolutely no html, head, body, meta, title, or doctype tags
+  - DO NOT create main#A it is already there
+  - no javascript at all, this is just the skeleton
+  - style tag for all styles, dark theme so the canvas pops
+  - header bar across the top containing:
+    - text input id="keyword-input" default "grants" (keywords or trends to search within the firehose, used to identify grants)
+    - number input id="post-count" default 25 (number of top-level posts to search)
+    - submit button id="submit-btn" (resets the simulation)
+    - pause/play button id="pause-btn"
+    - status span id="status"
+  - below the header a flex row filling all remaining viewport space:
+    - canvas id="sim-canvas" filling all remaining width and height, dark background
+    - sidebar id="sidebar" fixed width on the right, dark scrollable panel
+  - inside the sidebar a hidden content card div id="hover-card" (display:none by default;) with slots for avatar image, display name, handle, content text, particle type label, and engagement counts
+  - style hover-card as a dark card with a colored left border placeholder
+&w&a=1&p=TASK: output a SCRIPT tag that loads AT Protocol data into a global particle list
+  - create window.particles = [] and window.loadData = async function(keyword, count)
+  - endpoint: GET https://api.bsky.app/xrpc/app.bsky.feed.searchPosts
+  - accepts: q (keyword), limit (max 100), sort "top" (ranks by engagement so posts arrive with likes, reposts, and quotes), since (ISO datetime, only posts after this time), cursor (string) for pagination
+  - compute since as the current time minus 3 days so posts have had time to accumulate engagement
+  - response: {posts: [...], cursor: "string or absent on last page"}
+  - keep only posts whose record has NO reply field (top-level posts only), page until count top-level posts are collected or no cursor remains
+  - post fields: post.uri, post.record.text, post.record.reply, post.author.displayName, post.author.handle, post.author.avatar, post.likeCount, post.replyCount, post.repostCount, post.quoteCount
+  - then for each collected top-level post uri fetch these public read endpoints on public.api.bsky.app:
+    - GET app.bsky.feed.getPostThread%3Furi= encoded uri %26 depth= 10 %26 parentHeight= 0 and walk the replies tree
+    - GET app.bsky.feed.getLikes%3Furi= encoded uri %26 limit= 100
+    - GET app.bsky.feed.getRepostedBy%3Furi= encoded uri %26 limit= 100
+    - GET app.bsky.feed.getQuotes%3Furi= encoded uri %26 limit= 100
+  - push one particle object per datapoint into window.particles with these fields:
+    - type: "post" for top-level posts (red), "thread" for thread posts authored by the same handle as the root post (yellow), "reply" for all other replies (green), "like" for likes (blue), "repost" for reposts (purple), "quote" for quotes (white)
+    - name: display name or username
+    - handle: their handle
+    - content: the post text if the particle is a post, thread, reply, or quote, empty string for like and repost
+    - avatar: author avatar url if available
+    - uri: the post uri if it has one
+    - root: the uri of the top-level post this particle belongs to, for clustering later
+  - update id="status" throughout with fetch progress
+  - when finished dispatch CustomEvent "data:loaded" on window with window.particles as event.detail
+  - this is just a loader function, do not render anything and do not call it yet
+  - no CORS proxies, no websockets, plain GET requests only
+  - use var for all variables
+  - ONLY generate this SCRIPT tag, do not return the previous code
+&w&a=1&p=TASK: output a SCRIPT tag that sets the initial simulation state and scatters the particles
+  - the world is MUCH larger than the screen, for example 5x the screen width and 5x the screen height in pixels, and we start fairly zoomed in
+  - create a camera object window.cam = { x: 0, y: 0, zoom: 1 } now so a later script can add zooming, and apply it every frame in the draw loop via setTransform
+  - create window.resetSimulation = function() that clears particle positions and state
+  - on "data:loaded" assign every particle an x, y and vx, vy of 0:
+    - each top-level post gets a random cluster center somewhere in the world with generous spacing between clusters
+    - its thread posts, replies, likes, reposts and quotes start roughly near their root post center with random jitter, so every post and its replies and likes start near each other with some distance
+  - IMPORTANT: still inside the "data:loaded" handler, AFTER all cluster positions are assigned, aim the camera at the data: set window.cam.x and window.cam.y to the centroid of all the root cluster centers, and set window.cam.zoom to about 0.5, so the clusters are visible on screen immediately on load (at zoom 1 the clusters land far off screen)
+  - run a requestAnimationFrame draw loop on canvas id="sim-canvas":
+    - resize the canvas to fill its container each frame
+    - draw every particle as a small filled circle in its type color: post red, thread yellow, reply green, like blue, repost purple, quote white
+    - draw top-level posts as their avatar image with a thick red border instead of a plain circle, fallback to a red circle while the image loads
+    - when creating avatar Image objects do NOT set crossOrigin on them, assign img.src directly (the bsky CDN does not send CORS headers so crossOrigin requests get blocked, but plain drawImage works fine because we never read canvas pixels)
+  - bind id="submit-btn" click and Enter keydown on id="keyword-input" to reset the simulation and call window.loadData with the trimmed keyword-input value and the post-count value
+  - autorun: call window.loadData(document.getElementById("keyword-input").value.trim(), document.getElementById("post-count").value) immediately on load
+  - prevent any native form submission or page reload
+  - this chain only sets the initial state, do NOT implement forces or zoom yet
+  - use var for all variables
+  - run immediately, no DOMContentLoaded wait
+  - ONLY generate this SCRIPT tag, do not return the previous code
+&w&a=1&p=TASK: output a SCRIPT tag that implements the pairwise particle-life behavior
+  - create window.paused = false and bind id="pause-btn" to toggle it, swapping the button label between Pause and Play
+  - create window.forceMatrix, a nested object keyed by the 6 type names post, thread, reply, like, repost, quote, holding a random attraction or repulsion value between -1 and 1 for every ordered pair, so it can be tuned later
+  - create window.simConfig holding every tunable setting so a later settings panel can change them live:
+    - interactionRadius: default 0.15 times the smaller of the canvas width and height
+    - damping: 0.9
+    - maxSpeed: 8
+    - rootAttraction: 0.0005
+    - likeBoostPerLike: 0.02
+    - likeBoostMax: 3
+    - influenceBase: an object keyed by the 6 type names, post strongest at 1, thread and reply 0.7, quote and repost 0.4, like weakest at 0.2
+  - CRITICAL: the frame loop must read every value from window.simConfig live on every frame, never copy them into local variables and never precompute cached squared values, so sliders can change them while the simulation runs (compute squared distances on the fly)
+  - forces only apply within window.simConfig.interactionRadius, beyond that radius force is zero
+  - performance is CRITICAL, use a uniform grid spatial hash, do NOT use a naive all-pairs loop:
+    - each frame rebuild the grid: a Map from cell key to array of particle indices, cell size equal to the current window.simConfig.interactionRadius
+    - for each particle only test neighbors in its own cell and the 8 adjacent cells
+    - iterate each pair only once and apply the force equally and oppositely to both particles
+    - compare squared distances only, never call Math.sqrt or Math.pow inside the pair loop
+  - each frame, if window.paused is false:
+    - apply the window.forceMatrix force between the two types of each neighboring pair
+    - scale force strength by the type influence from window.simConfig.influenceBase
+    - track how many likes each poster has received and scale that posters influence up by window.simConfig.likeBoostPerLike per like, capped at window.simConfig.likeBoostMax
+    - particles belonging to the same root feel a weak extra attraction toward their root post scaled by window.simConfig.rootAttraction so clusters stay coherent
+    - apply window.simConfig.damping each frame and cap speed at window.simConfig.maxSpeed
+    - integrate velocity into position
+  - do NOT draw anything, the existing draw loop already renders window.particles each frame
+  - use var for all variables
+  - ONLY generate this SCRIPT tag, do not return the previous code
+&w&a=1&p=TASK: output a SCRIPT tag that implements camera zoom
+  - use the existing window.cam = { x, y, zoom } camera object
+  - scroll wheel on the canvas zooms in and out centered on the mouse cursor position, zoom toward the pointer not the canvas center
+  - clamp zoom between a min and max so users cannot get lost
+  - touch pinch zoom with two fingers centered on the pinch midpoint, using touchstart touchmove touchend with preventDefault
+  - also add drag to pan with mouse drag or one finger, so the larger world stays navigable
+  - update window.cam only, the existing draw loop already applies it via setTransform
+  - use var for all variables
+  - ONLY generate this SCRIPT tag, do not return the previous code
+&w&a=1&p=TASK: output a SCRIPT tag that implements hover interaction with the sidebar content card
+  - on mousemove over the canvas convert screen coordinates to world coordinates using window.cam
+  - when window.paused is false (playing): only consider particles of type "post", find the closest top-level poster within a small pixel threshold of the cursor
+  - when window.paused is true (paused): consider ALL particle types, find the closest particle of any type within the threshold
+  - when a particle is hovered, populate and show the existing hidden div id="hover-card" in the sidebar:
+    - card position is absolute so it shows up above the other elements in the sidebar
+    - avatar image if available, display name, handle
+    - content text if the particle is a post, thread, reply, or quote
+    - the particle type label, with the card left border colored to match the particle type color
+    - engagement counts if available
+  - when nothing is hovered set hover-card back to display none
+  - highlight the hovered particle on the canvas with a bright outline ring
+  - use var for all variables
+  - ONLY generate this SCRIPT tag, do not return the previous code
+&w&a=1&p=TASK: output a SCRIPT tag that adds a force matrix editor to the settings panel
+  - inject a style tag for the matrix styles and panel scrolling, dark theme matching the existing sidebar:
+    - give id="settings-panel" a max-height of about 60 percent of the viewport height with overflow-y auto, and style its scrollbar thin and dark to match the existing sidebar scroll area
+  - create a collapsible section inside the existing id="settings-panel" with a header labelled "Force Matrix", start collapsed
+  - below the header a small legend line: "row particle is pulled or pushed by column particle (negative pushes away, positive pulls together)"
+  - build a 7 by 7 grid: the top row and left column are headers showing the 6 particle types (post, thread, reply, like, repost, quote) as small colored dots matching their particle colors, with a tooltip of the full type name
+  - the inner 6 by 6 cells are small number inputs, one per ordered type pair:
+    - each input reads its initial value from window.forceMatrix[rowType][columnType]
+    - range -1 to 1, step 0.05
+    - on every input event write the value back into window.forceMatrix[rowType][columnType] IN PLACE, never replace the matrix object
+    - tint each cell background by value: deep red for -1, neutral dark for 0, deep green for 1, interpolated smoothly, with light text on top, so the matrix reads as a heatmap
+  - whenever the section is expanded, re-sync every cell from window.forceMatrix so it always reflects the current matrix (for example after the Re-roll Forces button was pressed)
+  - persistence: on every cell edit save the full window.forceMatrix to localStorage under a key like "bskylife_matrix", and on script load restore any saved values into window.forceMatrix IN PLACE field by field, then set the cell values and colors to match
+  - do NOT create window.forceMatrix or window.simConfig or the settings panel, they already exist from earlier scripts, only read and mutate them
+  - use var for all variables
+  - run immediately, no DOMContentLoaded wait
+  - ONLY generate this SCRIPT tag, do not return the previous code
+&w

@@ -1,0 +1,232 @@
+<style>
+    #idb_manager_ui {
+        font-family: sans-serif;
+        border: 2px solid #444;
+        background-color: #eee;
+        padding: 15px;
+        width: 100%;
+        max-width: 600px;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .idb_row {
+        display: flex;
+        flex-direction: row;
+        gap: 10px;
+        align-items: center;
+    }
+    #idb_filename {
+        flex-grow: 1;
+        padding: 5px;
+        border: 1px solid #999;
+    }
+    .idb_btn {
+        padding: 6px 12px;
+        background-color: #ddd;
+        border: 1px solid #888;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    .idb_btn:active {
+        background-color: #bbb;
+    }
+    #idb_log_output {
+        border-top: 1px solid #ccc;
+        padding-top: 5px;
+        font-family: monospace;
+        font-size: 12px;
+        color: #333;
+        min-height: 20px;
+    }
+</style>
+
+<div id="idb_manager_ui">
+    <div class="idb_row">
+        <label for="idb_filename">Filename:</label>
+        <input type="text" id="idb_filename" value="db_backup.json" placeholder="filename.json">
+    </div>
+    <div class="idb_row">
+        <button id="idb_export_btn" class="idb_btn">Export</button>
+        <button id="idb_import_btn" class="idb_btn">Import</button>
+        <input type="file" id="idb_file_input" style="display:none">
+    </div>
+    <div id="idb_log_output">
+        Status: Waiting for user action...
+    </div>
+</div><script>
+    var idb_ui_export_btn = document.getElementById('idb_export_btn');
+    var idb_ui_filename = document.getElementById('idb_filename');
+    var idb_ui_log = document.getElementById('idb_log_output');
+
+    var idb_update_filename = function() {
+        var d = new Date();
+        var yy = String(d.getFullYear()).slice(-2);
+        var mm = String(d.getMonth() + 1).padStart(2, '0');
+        var dd = String(d.getDate()).padStart(2, '0');
+        var hh = String(d.getHours()).padStart(2, '0');
+        var min = String(d.getMinutes()).padStart(2, '0');
+        // Assume DB global exists, fallback to 'db' if undefined for safety
+        var dbName = (typeof DB !== 'undefined') ? DB : 'db';
+        idb_ui_filename.value = dbName + '-' + yy + mm + dd + '-' + hh + min + '.gz';
+    };
+
+    // Run immediately and loop every minute
+    idb_update_filename();
+    setInterval(idb_update_filename, 60000);
+
+    idb_ui_export_btn.onclick = function() {
+        if (typeof DB === 'undefined') {
+            idb_ui_log.innerText = "Status: Error - Global 'DB' variable missing.";
+            return;
+        }
+
+        idb_ui_log.innerText = "Status: Reading IndexedDB...";
+        
+        var request = indexedDB.open(DB);
+        
+        request.onerror = function(event) {
+            idb_ui_log.innerText = "Status: Error opening DB.";
+            console.error("IDB Error", event);
+        };
+
+        request.onsuccess = function(event) {
+            var db = event.target.result;
+            if (db.objectStoreNames.length === 0) {
+                idb_ui_log.innerText = "Status: Error - No object stores found.";
+                return;
+            }
+
+            // Loop through keys of the first store found (standard behavior for these single-store OS sims)
+            var storeName = db.objectStoreNames[0];
+            var transaction = db.transaction([storeName], "readonly");
+            var objectStore = transaction.objectStore(storeName);
+            var files_acc = {};
+
+            objectStore.openCursor().onsuccess = function(event) {
+                var cursor = event.target.result;
+                if (cursor) {
+                    files_acc[cursor.key] = cursor.value;
+                    cursor.continue();
+                } else {
+                    // All data gathered
+                    idb_ui_log.innerText = "Status: Compressing data...";
+                    
+                    var export_obj = {};
+                    export_obj[DB] = { files: files_acc };
+                    
+                    var json_str = JSON.stringify(export_obj);
+                    var raw_blob = new Blob([json_str], {type: 'application/json'});
+                    
+                    // Compress using CompressionStream
+                    var stream = raw_blob.stream().pipeThrough(new CompressionStream('gzip'));
+                    
+                    new Response(stream).blob().then(function(compressed_blob) {
+                        var url = URL.createObjectURL(compressed_blob);
+                        var a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = idb_ui_filename.value;
+                        document.body.appendChild(a);
+                        a.click();
+                        
+                        // Cleanup
+                        setTimeout(function() {
+                            document.body.removeChild(a);
+                            window.URL.revokeObjectURL(url);
+                            idb_ui_log.innerText = "Status: Export successfully downloaded.";
+                        }, 100);
+                    }).catch(function(err) {
+                        idb_ui_log.innerText = "Status: Compression error.";
+                        console.error(err);
+                    });
+                }
+            };
+        };
+    };
+</script><script>
+    var idb_ui_import_btn = document.getElementById('idb_import_btn');
+    var idb_ui_file_input = document.getElementById('idb_file_input');
+    var idb_ui_log_import = document.getElementById('idb_log_output');
+
+    idb_ui_import_btn.onclick = function() {
+        idb_ui_file_input.click();
+    };
+
+    idb_ui_file_input.onchange = function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+
+        idb_ui_log_import.innerText = "Status: Reading and decompressing...";
+
+        // Use DecompressionStream to handle the .gz file
+        var ds = new DecompressionStream('gzip');
+        var stream = file.stream().pipeThrough(ds);
+        
+        new Response(stream).json().then(function(data) {
+            if (typeof DB === 'undefined') {
+                idb_ui_log_import.innerText = "Status: Error - Global 'DB' variable missing.";
+                return;
+            }
+
+            // Check structure matches export: { [DB]: { files: {...} } }
+            if (!data[DB] || !data[DB].files) {
+                idb_ui_log_import.innerText = "Status: Error - JSON structure mismatch.";
+                return;
+            }
+
+            var fileData = data[DB].files;
+            var request = indexedDB.open(DB);
+
+            request.onerror = function(event) {
+                idb_ui_log_import.innerText = "Status: Error opening Database.";
+                console.error(event);
+            };
+
+            request.onsuccess = function(event) {
+                var db = event.target.result;
+                // Instruction says import into "files" table
+                // Check if "files" store exists, otherwise try the first one (fallback)
+                var storeName = "files";
+                if (!db.objectStoreNames.contains(storeName)) {
+                    if (db.objectStoreNames.length > 0) {
+                        storeName = db.objectStoreNames[0];
+                    } else {
+                        idb_ui_log_import.innerText = "Status: Error - No object store 'files' found.";
+                        return;
+                    }
+                }
+
+                var transaction = db.transaction([storeName], "readwrite");
+                var objectStore = transaction.objectStore(storeName);
+                
+                var keys = Object.keys(fileData);
+                idb_ui_log_import.innerText = "Status: Importing " + keys.length + " keys...";
+
+                keys.forEach(function(key) {
+                    // Check if store expects inline keys or out-of-line
+                    if (objectStore.keyPath) {
+                        objectStore.put(fileData[key]);
+                    } else {
+                        objectStore.put(fileData[key], key);
+                    }
+                });
+
+                transaction.oncomplete = function() {
+                    idb_ui_log_import.innerText = "Status: Import Successful!";
+                    idb_ui_file_input.value = ""; // Reset input
+                };
+
+                transaction.onerror = function(err) {
+                    idb_ui_log_import.innerText = "Status: Import Transaction Failed.";
+                    console.error(err);
+                };
+            };
+
+        }).catch(function(err) {
+            idb_ui_log_import.innerText = "Status: Error processing file (Invalid JSON or GZIP).";
+            console.error(err);
+        });
+    };
+</script>

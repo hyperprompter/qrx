@@ -1,0 +1,274 @@
+<style>
+  .chat-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+  }
+  .chat-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background-color: #e9ecef;
+    border-bottom: 1px solid #ced4da;
+  }
+  .model-details {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    background-color: #ffffff;
+    padding: 20px;
+  }
+  .chat-footer {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 15px;
+    background-color: #e9ecef;
+    border-top: 1px solid #ced4da;
+  }
+  .chat-footer textarea {
+    flex: 1;
+    resize: vertical;
+    min-height: 40px;
+    padding: 10px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+  }
+  .chat-footer button {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    height: 100%;
+  }
+</style>
+
+<div class="chat-layout">
+  <header class="chat-header">
+    <div class="model-details">
+      <label for="model-name">Model Name:</label>
+      <input type="text" id="model-name" name="model-name">
+      
+      <label for="model-host">Model Host:</label>
+      <input type="text" id="model-host" name="model-host">
+      
+      <label for="api-key">API Key:</label>
+      <input type="password" id="api-key" name="api-key">
+    </div>
+  </header>
+
+  <main class="chat-messages"></main>
+
+  <footer class="chat-footer">
+    <textarea id="user-input" name="user-input"></textarea>
+    <button type="submit">Submit</button>
+  </footer>
+</div><script>
+  const modelName = localStorage.getItem('m');
+  const modelHost = localStorage.getItem('h');
+  const apiKey = localStorage.getItem('k');
+
+  if (modelName !== null) document.getElementById('model-name').value = modelName;
+  if (modelHost !== null) document.getElementById('model-host').value = modelHost;
+  if (apiKey !== null) document.getElementById('api-key').value = apiKey;
+</script><script>
+  let fullChat = "";
+  
+  window.chatPlugins = window.chatPlugins || {};
+  window.chatPlugins.logger = {
+    callback: async function (currentPrompt, chatHistory) {
+      console.log("Transformed payload intercept:", currentPrompt);
+      return currentPrompt;
+    }
+  };
+
+  const submitBtn = document.querySelector('.chat-footer button');
+  const textarea = document.getElementById('user-input');
+  const chatMessages = document.querySelector('.chat-messages');
+  
+  const inModel = document.getElementById('model-name');
+  const inHost = document.getElementById('model-host');
+  const inKey = document.getElementById('api-key');
+
+  async function processChat() {
+    const rawPrompt = textarea.value;
+    if (!rawPrompt.trim()) return;
+
+    textarea.value = "";
+
+    const userLine = document.createElement('div');
+    userLine.style.marginBottom = "15px";
+    userLine.style.whiteSpace = "pre-wrap";
+    userLine.innerHTML = "<strong>User:</strong><br/>";
+    userLine.appendChild(document.createTextNode(rawPrompt));
+    chatMessages.appendChild(userLine);
+
+    let transformedPrompt = rawPrompt;
+    for (const plugin in window.chatPlugins) {
+      if (window.chatPlugins[plugin] && typeof window.chatPlugins[plugin].callback === 'function') {
+        transformedPrompt = await window.chatPlugins[plugin].callback(transformedPrompt, fullChat);
+      }
+    }
+
+    const prependHistoryText = fullChat ? fullChat + "\n\n" : "";
+    const payloadText = prependHistoryText + "User: " + transformedPrompt + "\nAssistant: ";
+    
+    fullChat = prependHistoryText + "User: " + rawPrompt + "\nAssistant: ";
+
+    const assistantLine = document.createElement('div');
+    assistantLine.style.marginBottom = "15px";
+    assistantLine.style.whiteSpace = "pre-wrap";
+    assistantLine.innerHTML = "<strong>Assistant:</strong><br/>";
+    const assistantContentSpan = document.createElement('span');
+    assistantLine.appendChild(assistantContentSpan);
+    chatMessages.appendChild(assistantLine);
+
+    const modelName = inModel.value;
+    const modelHost = inHost.value;
+    const apiKey = inKey.value;
+
+    localStorage.setItem('m', modelName);
+    localStorage.setItem('h', modelHost);
+    localStorage.setItem('k', apiKey);
+
+    const headers = { "Content-Type": "application/json" };
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+
+    const payload = {
+      model: modelName,
+      messages: [{ role: "user", content: payloadText }],
+      stream: true
+    };
+
+    try {
+      const response = await fetch(modelHost, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        assistantContentSpan.innerText = "Error: HTTP " + response.status;
+        return;
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+      let aiMessage = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop(); 
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("data: ")) {
+            const dataStr = trimmed.substring(6).trim();
+            if (dataStr === "[DONE]") continue;
+            try {
+              const data = JSON.parse(dataStr);
+              const content = data.choices?.[0]?.delta?.content;
+              if (content) {
+                aiMessage += content;
+                assistantContentSpan.appendChild(document.createTextNode(content));
+              }
+            } catch (e) {
+            }
+          }
+        }
+      }
+      
+      fullChat += aiMessage;
+
+    } catch (err) {
+      assistantContentSpan.appendChild(document.createTextNode("\nError: " + err.message));
+    }
+  }
+
+  submitBtn.addEventListener('click', processChat);
+
+  textarea.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'Enter') {
+      e.preventDefault();
+      processChat();
+    }
+  });
+</script><script>
+window.chatPlugins = window.chatPlugins || {};
+
+window.chatPlugins.contextLinker = {
+  callback: async function(currentPrompt, chatHistory) {
+    async function processLinks(text, visited, depth) {
+      if (depth > 2 || typeof text !== "string") return text;
+
+      const linkRegex = /\[\[(.*?)\]\]/g;
+      const matches = [...text.matchAll(linkRegex)];
+      
+      if (matches.length === 0) return text;
+
+      const fetchPromises = matches.map(async (match) => {
+        const originalText = match[0];
+        let innerText = match[1];
+        let name = window.DB;
+        let link = innerText;
+
+        if (innerText.includes('#')) {
+          const parts = innerText.split('#');
+          name = parts[0] || window.DB;
+          link = parts[1];
+        }
+
+        const fullRef = `${name}#${link}`;
+
+        if (visited.has(fullRef)) {
+          return { original: originalText, replacement: originalText };
+        }
+
+        visited.add(fullRef);
+
+        try {
+          let contextData = await read(link, name);
+          if (contextData) {
+            console.log(`Link fetched: ${fullRef}`, contextData);
+            let expandedContext = await processLinks(contextData, visited, depth + 1);
+            let contextWrapped = `<context file="${fullRef}">\n${expandedContext}\n</context>`;
+            return { original: originalText, replacement: contextWrapped };
+          }
+        } catch (e) {
+          // Silently quiet fetch errors
+        }
+
+        return { original: originalText, replacement: originalText };
+      });
+
+      const resolvedData = await Promise.all(fetchPromises);
+      
+      let newText = text;
+      for (const res of resolvedData) {
+        newText = newText.split(res.original).join(res.replacement);
+      }
+      
+      return newText;
+    }
+
+    return await processLinks(currentPrompt, new Set(), 0);
+  }
+};
+</script>

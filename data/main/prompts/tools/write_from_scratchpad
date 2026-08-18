@@ -1,0 +1,21 @@
+#tools/write_from_scratchpad?a=0&e=/* Compiles data from your Working Memory and writes it to disk. Input MUST be a valid JSON array:["namespace\x23filename", ["pointer1", "pointer2"], "Optional Header Text"] */
+try {
+  var args = JSON.parse(INPUT);
+  var target = args[0]; var pointers = args[1]; var header = args[2] || "";
+  var compiled = [];
+  if (header) compiled.push(header);
+  for (var i = 0; i < pointers.length; i++) {
+    var ptr = pointers[i];
+    if (window.agentScratchpad %26%26 window.agentScratchpad[ptr]) {
+      compiled.push(window.agentScratchpad[ptr]);
+    }
+  }
+  var finalString = compiled.join('\n\n');
+  var d = null; var k = target;
+  if (target.includes('\x23')) { var p = target.split('\x23'); d = p[0]; k = p[1]; }
+  await write(finalString, k, d || db);
+  return "OBSERVATION: Success. Compiled and wrote " %2B finalString.length %2B " bytes to " %2B target;
+} catch (err) {
+  return "OBSERVATION: Error parsing JSON or writing file. " %2B err.message;
+}
+&w

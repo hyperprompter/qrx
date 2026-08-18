@@ -1,0 +1,39 @@
+if (window._windowsHandler) window.removeEventListener('main:ready', window._windowsHandler);
+
+window._windowsHandler = function() {
+  var specs = arg.split('|');
+  var baseline = document.querySelectorAll('.window:not(#window-template)').length;
+  for (var i = 0; i < specs.length; i++) {
+    var spec = specs[i];
+    var match = spec.match(/^(.+?)\{([^}]*)\}$/)
+    var path = match ? match[1].trim() : spec.trim();
+    window.openFileWindow(path);
+  }
+  setTimeout(function() {
+    var wins = document.querySelectorAll('.window:not(#window-template)');
+    for (var j = 0; j < specs.length; j++) {
+      var spec = specs[j];
+      var match = spec.match(/^(.+?)\{([^}]*)\}$/);
+      var modifier = match ? match[2].trim() : '';
+      var win = wins[baseline + j];
+      if (!win) continue;
+      if (modifier === 'max') {
+        var btn = win.querySelector('button[aria-label="Maximize"]');
+        if (btn) btn.click();
+      } else if (modifier === 'min') {
+        var btn = win.querySelector('button[aria-label="Minimize"]');
+        if (btn) btn.click();
+      } else if (modifier !== '') {
+        var n = parseInt(modifier, 10);
+        if (!isNaN(n)) {
+          win.style.width = (n * window.innerWidth / 100) + 'px';
+          win.style.height = (n * (window.innerHeight - 28) / 100) + 'px';
+        }
+      }
+    }
+  }, 100);
+};
+
+if (filename === 'main') {
+  window.addEventListener('main:ready', window._windowsHandler);
+}

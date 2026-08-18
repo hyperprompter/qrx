@@ -1,0 +1,7 @@
+var _ext = filename.split('.').pop().toLowerCase();
+if (_ext === 'txt' || _ext === 'md') {
+  var _s = document.createElement('style');
+  _s.textContent = 'main{white-space:pre-wrap;font-family:monospace;padding:1.5rem;line-height:1.6;max-width:72ch}';
+  S.after(_s);
+}
+ 

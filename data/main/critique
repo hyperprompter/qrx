@@ -1,0 +1,6 @@
+const critique = sessionStorage.getItem(`critique_${filename}`);
+if (critique) {
+    console.log("Previous critique found.");
+    return v + "\n\nCRITICAL FEEDBACK FROM PREVIOUS ATTEMPT. YOU MUST FIX THIS:\n" + critique;
+}
+return v;

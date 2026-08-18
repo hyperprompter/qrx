@@ -1,0 +1,15 @@
+#tools/extract?e&w&p=TASK: output pure javascript for a dataverse tool. NO HTML. NO MARKDOWN.
+- This tool extracts specific information from a file using a secondary LLM worker.
+- The global variable INPUT contains the arguments, formatted exactly as "namespace%23filename | Extraction instructions"
+- split INPUT by the pipe character
+- if less than 2 parts, return an error string
+- extract fileInfo (part 0) and instructions (part 1)
+- parse fileInfo to get the database name and key (split by hex x23)
+- await read(key, database) to get the file content
+- if no content return an error string
+- slice the content to 25000 chars maximum
+- construct a prompt using the instructions and a strict mandate to output ONLY the extracted data and no conversational filler.
+- call await window.gen(content, prompt)
+- return the trimmed result
+- use var for all variables
+&w

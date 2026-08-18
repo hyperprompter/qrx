@@ -1,0 +1,91 @@
+if(window._bootErrors)return; window._bootErrors=true;
+
+(function(){
+  var container = null;
+
+  function getContainer(){
+    if(container) return container;
+    container = document.createElement('div');
+    container.id = 'error-toast-container';
+    container.style.position = 'fixed';
+    container.style.top = '10px';
+    container.style.right = '10px';
+    container.style.zIndex = '2147483647';
+    container.style.display = 'flex';
+    container.style.flexDirection = 'column-reverse';
+    container.style.gap = '8px';
+    container.style.pointerEvents = 'none';
+    container.style.maxWidth = '420px';
+    container.style.maxHeight = 'calc(100vh - 20px)';
+    container.style.overflowY = 'auto';
+    container.style.boxSizing = 'border-box';
+    document.body.appendChild(container);
+    return container;
+  }
+
+  function createToast(message){
+    var el = document.createElement('div');
+    el.className = 'error-toast';
+    el.style.pointerEvents = 'auto';
+    el.style.background = 'rgba(220, 40, 40, 0.95)';
+    el.style.color = '#fff';
+    el.style.padding = '12px 16px';
+    el.style.borderRadius = '6px';
+    el.style.fontFamily = 'system-ui, -apple-system, sans-serif';
+    el.style.fontSize = '13px';
+    el.style.lineHeight = '1.4';
+    el.style.cursor = 'pointer';
+    el.style.boxShadow = '0 4px 20px rgba(0,0,0,0.5)';
+    el.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    el.style.wordBreak = 'break-word';
+    el.style.whiteSpace = 'pre-wrap';
+    el.style.boxSizing = 'border-box';
+    el.style.border = '1px solid rgba(255,255,255,0.2)';
+    el.textContent = message;
+
+    el.addEventListener('click', function(){
+      el.style.opacity = '0';
+      el.style.transform = 'scale(0.9) translateY(-10px)';
+      setTimeout(function(){
+        if(el.parentNode) el.parentNode.removeChild(el);
+      }, 300);
+    });
+
+    return el;
+  }
+
+  function showError(message){
+    try {
+      var c = getContainer();
+      var toast = createToast(message);
+      c.appendChild(toast);
+
+      setTimeout(function(){
+        if(toast.parentNode){
+          toast.style.opacity = '0';
+          toast.style.transform = 'scale(0.9) translateY(-10px)';
+          setTimeout(function(){
+            if(toast.parentNode) toast.parentNode.removeChild(toast);
+          }, 300);
+        }
+      }, 8000);
+    } catch(e){}
+  }
+
+  window.addEventListener('error', function(e){
+    var msg = e && e.message ? e.message : String(e);
+    var file = e.filename || '';
+    var line = e.lineno || '';
+    var col = e.colno || '';
+    var text = msg + (file ? ' (' + file + ':' + line + ':' + col + ')' : '');
+    showError(text);
+  });
+
+  window.addEventListener('unhandledrejection', function(e){
+    var reason = e && (e.reason || e.detail && e.detail.reason);
+    var text = 'Unhandled Promise Rejection: ' + (reason && (reason.message || String(reason)) || String(reason));
+    showError(text);
+  });
+
+  console.log('[BootErrors] Error toast monitor active.');
+})();

@@ -1,0 +1,50 @@
+http://localhost:3000#main?e&w&p=TASK: output HTML wireframe for a windows 95 simulator
+  - start menu with "🪟 Start" button and  time area (no start panel yet)
+  - a hidden, reusable window template with
+    - title
+    - min, max, close buttons
+    - address bar with refresh icon and "Go" button
+  - windows teal background
+  - basic css reset like margin: 0 for body and box-sizing
+  - no javascript
+  - don't include html/head/body tags just the wireframe
+&w&a=1&p=TASK: output SCRIPT tag for rendering top level icons
+  - loop through each indexeddb record
+    - the database is in the global strings `window.DB` and the table name is in `window.FILES`
+  - keys can have slashes in them denoting folders
+  - create a 📄 icon for every top level file
+    - the label is everything after the final / (or the whole string)
+  - create a 📁 icon for every top level folder
+    - the label is everything before the first / at that level
+&w&a=1&p=TASK: output SCRIPT tag for File Explorer
+  - when folder icon is single clicked or tapped, show a window for it
+  - set the addressbar to full/folder/path
+  - focus the addressbar on open
+  - generate more icons and folders for the current folder inside the window
+  - when clicking on a folder inside File Explorer update the addressbar and icons
+  - clicking the Go button or pressing enter in the address bar navigates that window
+  - don't handle other window interaction yet
+&w&a=1&p=TASK: output SCRIPT tag for showing file windows on icon clicks
+  - name the file opening function exactly `openFileWindow` and assign it to `window.openFileWindow`
+  - when file icon is single clicked or tapped, show a window for it
+  - show a full size iframe in the windows content area
+  - set the addressbar to full/file/path
+  - set the iframe path to just `${window.DB}#${full/file/path}`
+  - listen for #hash changes inside the iframe and update the addressbar on change (be mindful of loops)
+  - keep addressbar and iframe synced
+  - when user presses enter in the addressbar or presses Go, the iframe should update to the new URL
+  - do this for file icons in folders too
+  - don't handle other window interaction yet
+  - URLs must always be in the form db#file
+    - if no db name is present assume ${window.DB}
+    - if no # hash symbol is present, assume the whole thing is a hash
+  - example: if DB='main' then #chat should map to main#chat
+  - example: if DB='apps/paint' and file is 'art/selfie' then it should map to apps/paint#art/selfie
+&w&a=1&p=TASK: output SCRIPT tag for handling windows
+  - make windows draggable by dragging the titlebar
+  - make windows resizable
+    - make sure any window body elements and iframe resize to fit new window size too (this often fails to work due to nested elements)
+  - make windows closable
+  - make windows maximizable (and restore size when pressed again)
+  - make windows minizable (and show an icon for it in the startbar
+&w

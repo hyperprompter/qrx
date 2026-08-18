@@ -1,0 +1,336 @@
+<style>
+  .app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    box-sizing: border-box;
+    font-family: sans-serif;
+  }
+  .header {
+    background-color: #f1f5f9;
+    padding: 20px;
+    border-bottom: 1px solid #cbd5e1;
+    flex-shrink: 0;
+  }
+  .header-title {
+    margin: 0 0 15px 0;
+    font-size: 24px;
+    color: #1e293b;
+  }
+  .model-details {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+  .model-details label {
+    display: flex;
+    flex-direction: column;
+    font-size: 14px;
+    font-weight: bold;
+    color: #475569;
+    gap: 5px;
+  }
+  .model-details input {
+    padding: 5px;
+    border: 1px solid #94a3b8;
+    border-radius: 4px;
+  }
+  .split-view {
+    display: flex;
+    flex-direction: row;
+    flex-grow: 1;
+    overflow: hidden;
+  }
+  .left-panel {
+    width: 50%;
+    overflow-y: auto;
+    background-color: #f8fafc;
+    border-right: 1px solid #cbd5e1;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  .right-panel {
+    width: 50%;
+    overflow-y: auto;
+    background-color: #ffffff;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+  .footer {
+    display: flex;
+    gap: 15px;
+    background-color: #f1f5f9;
+    padding: 20px;
+    border-top: 1px solid #cbd5e1;
+    flex-shrink: 0;
+    align-items: stretch;
+  }
+  .footer textarea {
+    flex-grow: 1;
+    resize: vertical;
+    min-height: 60px;
+    padding: 10px;
+    border: 1px solid #94a3b8;
+    border-radius: 4px;
+    font-family: inherit;
+  }
+  .button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    justify-content: center;
+  }
+  .button-group button {
+    padding: 10px 20px;
+    cursor: pointer;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+  }
+  .submit-btn {
+    background-color: #0ea5e9;
+    color: white;
+  }
+  .stop-btn {
+    background-color: #ef4444;
+    color: white;
+  }
+</style>
+
+<div class="app-container">
+  <div class="header">
+    <h1 class="header-title">Autonomous Agent</h1>
+    <div class="model-details">
+      <label>
+        Model Name
+        <input type="text" />
+      </label>
+      <label>
+        Model Host
+        <input type="text" />
+      </label>
+      <label>
+        API Key
+        <input type="password" />
+      </label>
+    </div>
+  </div>
+
+  <div class="split-view">
+    <div class="left-panel"></div>
+    <div class="right-panel"></div>
+  </div>
+
+  <div class="footer">
+    <textarea></textarea>
+    <div class="button-group">
+      <button type="button" class="submit-btn">Submit</button>
+      <button type="button" class="stop-btn">Stop</button>
+    </div>
+  </div>
+</div><script>
+  const inputs = document.querySelectorAll('.model-details input');
+  inputs[0].value = localStorage.getItem('m') || '';
+  inputs[1].value = localStorage.getItem('h') || '';
+  inputs[2].value = localStorage.getItem('k') || '';
+</script><script>
+window.BaseTools = {};
+
+window.BaseTools["read_file"] = {
+  description: "Reads a file. Input MUST be namespace#filename or just filename",
+  run: async function(input) {
+    let d = null;
+    let k = input;
+    if (input.includes('#')) {
+      let p = input.split('#');
+      d = p[0];
+      k = p[1];
+    }
+    return await read(k, d || db) || "File not found";
+  }
+};
+
+window.BaseTools["list_files"] = {
+  description: "Lists files. Input can be a namespace string, or empty for the current database.",
+  run: async function(input) {
+    let targetDb = input ? await getDB(input) : db;
+    return JSON.stringify(await keys(undefined, targetDb));
+  }
+};
+</script><script>
+window.chatHistory = [];
+window.stopAgent = false;
+
+async function runAgent(userMessage) {
+  if (!userMessage.trim()) return;
+  
+  const rightPanel = document.querySelector('.right-panel');
+  const leftPanel = document.querySelector('.left-panel');
+  
+  let userDiv = document.createElement('div');
+  userDiv.style.marginBottom = "15px";
+  userDiv.style.borderBottom = "1px solid #cbd5e1";
+  userDiv.style.paddingBottom = "5px";
+  userDiv.innerHTML = "<strong>User:</strong> " + userMessage;
+  rightPanel.appendChild(userDiv);
+  
+  window.chatHistory.push({ role: "User", content: userMessage });
+  
+  let errorCount = 0;
+  
+  while (true) {
+    let activeTools = Object.entries(window.BaseTools).map(x => x[0] + ' - ' + x[1].description);
+    let matchedKeys = await keys(IDBKeyRange.bound('tool', 'tool\uffff'));
+    
+    for (let k of matchedKeys) {
+      let c = await read(k);
+      let desc = "";
+      if (c && c.includes("/*")) {
+        desc = c.split("*/")[0].split("/*")[1].trim();
+      }
+      activeTools.push(k + ' - ' + desc);
+    }
+    
+    let systemPrompt = `You are an autonomous AI. Output ONLY valid JSON. If the user asks about other namespaces or databases, proactively use tools to investigate. To use a tool, output exactly: {"thought": "reasoning", "action": "tool_name", "action_input": "input"}. For the final answer, output exactly: {"thought": "reasoning", "answer": "final message"}. DO NOT wrap your response in markdown blocks.`;
+    
+    systemPrompt += "\nAVAILABLE TOOLS:\n" + activeTools.join('\n');
+    
+    if (window.stopAgent === true) {
+      systemPrompt += '\nUSER OVERRIDE: Stop executing tools immediately. Evaluate observations and output your final {"answer": "final message"} object.';
+      window.stopAgent = false;
+    }
+    
+    const uiInputs = document.querySelectorAll('.model-details input');
+    const modelName = uiInputs[0].value;
+    const modelHost = uiInputs[1].value;
+    const apiKey = uiInputs[2].value;
+    
+    let payload = {
+      model: modelName,
+      messages: [{ 
+        role: "user", 
+        content: systemPrompt + "\n\nCHAT HISTORY:\n" + JSON.stringify(window.chatHistory) 
+      }],
+      stream: false
+    };
+    
+    let headers = { "Content-Type": "application/json" };
+    if (apiKey) {
+      headers.Authorization = `Bearer ${apiKey}`;
+    }
+    
+    let aiResponse = "";
+    try {
+      let res = await fetch(modelHost, {
+        method: "POST",
+        headers: headers,
+        body: JSON.stringify(payload)
+      });
+      let data = await res.json();
+      aiResponse = data.message?.content || data.choices?.[0]?.message?.content || "";
+    } catch (e) {
+      aiResponse = e.message || "Fetch generic error";
+    }
+    
+    let aiPre = document.createElement('pre');
+    aiPre.style.whiteSpace = "pre-wrap";
+    aiPre.style.backgroundColor = "#e2e8f0";
+    aiPre.style.padding = "10px";
+    aiPre.style.margin = "10px 0";
+    aiPre.textContent = aiResponse;
+    leftPanel.appendChild(aiPre);
+    
+    let parsed = null;
+    try {
+      let firstIdx = aiResponse.indexOf('{');
+      let lastIdx = aiResponse.lastIndexOf('}');
+      if (firstIdx === -1 || lastIdx === -1) throw new Error("JSON boundaries not found.");
+      let jsonStr = aiResponse.substring(firstIdx, lastIdx + 1);
+      parsed = JSON.parse(jsonStr);
+      errorCount = 0;
+    } catch (e) {
+      window.chatHistory.push({ role: "System", content: "Error: Invalid JSON output." });
+      errorCount++;
+      if (errorCount >= 7) break;
+      continue;
+    }
+    
+    if (parsed.action) {
+      let toolResult = "";
+      let code = "";
+      let loopBreakTriggered = false;
+      
+      try {
+        if (window.BaseTools[parsed.action]) {
+          toolResult = await window.BaseTools[parsed.action].run(parsed.action_input);
+        } else {
+          code = await read(parsed.action) || "";
+          if (!code) throw new Error("Tool not found");
+          toolResult = await new Function('INPUT', 'return (async () => {' + code + '})()')(parsed.action_input);
+        }
+        if (toolResult === undefined) {
+          toolResult = "Tool executed successfully (no return value).";
+        }
+      } catch (err) {
+        console.error("Tool Execution Failed:", err, code);
+        toolResult = "Tool Execution Error: " + err.message + "\nStack: " + err.stack + "\nCode evaluated:\n" + code;
+        errorCount++;
+        if (errorCount >= 7) {
+          loopBreakTriggered = true;
+        }
+      }
+      
+      let obsDiv = document.createElement('div');
+      obsDiv.style.color = "#0369a1";
+      obsDiv.style.marginBottom = "10px";
+      obsDiv.textContent = "OBSERVATION: " + toolResult;
+      leftPanel.appendChild(obsDiv);
+      
+      window.chatHistory.push({ role: "System", content: "OBSERVATION: " + toolResult });
+      
+      if (loopBreakTriggered) break;
+      continue;
+    }
+    
+    if (parsed.answer) {
+      let ansDiv = document.createElement('div');
+      ansDiv.style.marginBottom = "15px";
+      ansDiv.innerHTML = "<strong>Agent:</strong> " + parsed.answer;
+      rightPanel.appendChild(ansDiv);
+      
+      window.chatHistory.push({ role: "Agent", content: parsed.answer });
+      break;
+    }
+  }
+  
+  if (errorCount >= 7) {
+    let errDiv = document.createElement('div');
+    errDiv.style.color = "red";
+    errDiv.style.marginTop = "10px";
+    errDiv.textContent = "System Diagnostics: Agent aborted after 7 consecutive errors. Check left-panel for looping traces.";
+    rightPanel.appendChild(errDiv);
+    window.chatHistory.push({ role: "System", content: "System Diagnostics: Agent aborted after 7 consecutive errors. Check left-panel for looping traces." });
+  }
+}
+
+document.querySelector('.submit-btn').addEventListener('click', (e) => {
+  e.preventDefault();
+  const textarea = document.querySelector('.footer textarea');
+  const val = textarea.value;
+  textarea.value = '';
+  runAgent(val);
+});
+
+document.querySelector('.footer textarea').addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === 'Enter') {
+    e.preventDefault();
+    const val = e.target.value;
+    e.target.value = '';
+    runAgent(val);
+  }
+});
+
+document.querySelector('.stop-btn').addEventListener('click', () => {
+  window.stopAgent = true;
+});
+</script>

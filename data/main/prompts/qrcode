@@ -1,0 +1,22 @@
+#qrcode?e&w&u=https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js&p=TASK: output HTML wireframe for a QR code overlay container
+  - create a container div with id="qr-overlay"
+  - inline css: position fixed, top 20px, right 20px, z-index 99999, background white, border 2px solid black, padding 10px, display flex, flex-direction column, gap 10px, cursor move, box-shadow 4px 4px 0px black, max-height 90vh, overflow-y auto
+  - do NOT include html/head/body tags
+&w&a=1&p=TASK: output a SCRIPT tag that uses the cached qrcode.js to render data
+  - async IIFE to run everything
+  - get cached library: `let lib = await read('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js', 'cache')`
+  - create a script element, set its textContent to `lib`, append to document.head
+  - get page text: `let txt = await read(filename)`
+  - split `txt` into an array of chunks, exactly 2953 chars max each
+  - loop through chunks array
+  - for each chunk: create a wrapper div with a text label showing the part number and byte size (e.g., "Part x of y - 2953 bytes") and an inner div
+  - add inline css to inner div: padding 15px, background white, border 2px solid #eee (to ensure a quiet zone so it scans easily)
+  - append wrapper to "#qr-overlay"
+  - instantiate: `new QRCode(innerDiv, {text: chunk, correctLevel: QRCode.CorrectLevel.L, width: 512, height: 512})`
+  - use var for variables
+&w&a=1&p=TASK: output a SCRIPT tag that makes #qr-overlay draggable
+  - add mousedown, mousemove, mouseup listeners to document/window to drag "#qr-overlay"
+  - track offsetX, offsetY, and an isDragging flag
+  - on mousemove, update style.left and style.top with px
+  - use var for variables
+&w

@@ -1,0 +1,4 @@
+#tools/list_files?e=/* Lists files in the database. Input: namespace string (or leave empty for current database). */
+var targetDb = INPUT %3F await getDB(INPUT) : db;
+return JSON.stringify(await keys(undefined, targetDb));
+&w

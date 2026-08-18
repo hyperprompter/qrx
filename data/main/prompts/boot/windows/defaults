@@ -1,0 +1,10 @@
+#boot/windows/defaults?e=if (window._bootWindowsDefault) return;
+window._bootWindowsDefault = true;
+ 
+if (filename === 'main') {
+  window.addEventListener('main:ready', function() {
+    window.openFileWindow('welcome.md');
+  }, { once: true });
+}
+&w
+ 

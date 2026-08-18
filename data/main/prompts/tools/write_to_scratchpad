@@ -1,0 +1,9 @@
+#tools/write_to_scratchpad?a=0&e=/* Saves raw text you generated directly into your Working Memory (Scratchpad). Input MUST be: pointer_name | text_content */
+var parts = INPUT.split('|');
+if (parts.length < 2) return "OBSERVATION: Error. Format must be pointer_name | text_content";
+var ptr = parts[0].trim();
+var txt = parts.slice(1).join('|').trim();
+if (typeof window.agentScratchpad === 'undefined') window.agentScratchpad = {};
+window.agentScratchpad[ptr] = txt;
+return "OBSERVATION: Success. " %2B txt.length %2B " bytes saved to Working Memory at pointer $SCRATCHPAD['" %2B ptr %2B "'].";
+&w
