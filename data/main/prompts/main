@@ -93,7 +93,7 @@
   - use var for all variables
 &w&a=1&p=TASK: output a SCRIPT tag that builds a global typeahead datalist from the file index
   - wrap everything in an async IIFE using var for all variables
-  - fetch '/data/index.json' and parse as JSON — if it fails use an empty array
+  - fetch (BASE %2B 'data/index.json') and parse as JSON — if it fails use an empty array  
   - attempt to read localStorage.getItem('SYNC_KEY') into a var
   - if SYNC_KEY is truthy, also fetch '/data/index.private.json' with header Authorization: SYNC_KEY and parse as JSON — if this fetch fails or returns non-ok, use an empty array
   - merge both arrays into one deduplicated list using a Set

@@ -79,7 +79,8 @@ function buildServerBootloader(base) {
 
 
           let pathNs = DB;
-          let currentHash = location.hash.replace('#', '') || 'main';
+          let currentHash = location.hash.slice(1).split('?')[0] || 'main';
+          let queryKeys = [...new URLSearchParams(location.hash.slice(1).split('?')[1] || '').keys()];
           let targetItem = pathNs + '/' + currentHash;
           let mainFallbackItem = 'main/' + currentHash;
           let needsReload = false;
@@ -93,7 +94,7 @@ function buildServerBootloader(base) {
             let targetKeys = await keys(undefined, targetDB);
             let exists = targetKeys.includes(key);
 
-            if (item === targetItem || item === mainFallbackItem || key.startsWith('boot/')) {
+            if (item === targetItem || item === mainFallbackItem || queryKeys.includes(key) || key.startsWith('boot/')) {
 
               let contentRes = await fetch('${base}read', {
                 method: 'POST',
@@ -132,7 +133,7 @@ function buildServerBootloader(base) {
                   let targetDB = await getDB(ns);
                   let targetKeys = await keys(undefined, targetDB);
                   let exists = targetKeys.includes(key);
-                  if (item === targetItem || item === mainFallbackItem || key.startsWith('boot/')) {
+                  if (item === targetItem || item === mainFallbackItem || queryKeys.includes(key) || key.startsWith('boot/')) {
                     let contentRes = await fetch('${base}read', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json', 'Authorization': syncKey },
@@ -204,7 +205,8 @@ function buildStaticBootloader(base) {
 
 
           let activeNS = DB;
-          let currentHash = location.hash.replace('#', '') || 'main';
+          let currentHash = location.hash.slice(1).split('?')[0] || 'main';
+          let queryKeys = [...new URLSearchParams(location.hash.slice(1).split('?')[1] || '').keys()];
           let targetItem = activeNS + '/' + currentHash;
           let needsReload = false;
 
@@ -223,7 +225,7 @@ function buildStaticBootloader(base) {
             let targetKeys = await keys(undefined, targetDB);
             let exists = targetKeys.includes(key);
 
-            if (item === targetItem || key.startsWith('boot/')) {
+            if (item === targetItem || queryKeys.includes(key) || key.startsWith('boot/')) {
 
               /**
                * Static GET instead of POST /read
