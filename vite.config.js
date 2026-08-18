@@ -7,6 +7,8 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 const __dirname = resolve()
 
+const jsString = value => JSON.stringify(value).replace(/</g, '\\u003c')
+
 /**
  * Minifies the final index.html after all transforms.
  * Also prepends a minimal <head> stub so VitePWA can find it during its
@@ -36,12 +38,13 @@ const htmlMinifierPlugin = () => ({
  * Builds the bootloader script for server deployments.
  *
  * Resolves namespace from hostname, fetches data/index.json, then for each
- * known key either syncs content via POST /read (for target/boot keys) or
- * stubs empty strings. Reloads on first boot or when content has changed.
+ * known key either syncs content via POST /read (for target/query/boot keys)
+ * or stubs empty strings. Reloads on first boot or when content has changed.
  */
 function buildServerBootloader(base) {
   return `
     <script>
+      var qrxBootHash = location.hash;
 
       window.NS = fetch('${base}data/index.json')
         .then(r => r.ok ? r.json() : [])
@@ -74,7 +77,9 @@ function buildServerBootloader(base) {
 
 
           let pathNs = DB;
-          let currentHash = location.hash.replace('#', '') || 'main';
+          let bootHash = qrxBootHash.slice(1);
+          let currentHash = bootHash.split('?')[0] || 'main';
+          let queryKeys = [...new URLSearchParams(bootHash.split('?')[1] || '').keys()];
           let targetItem = pathNs + '/' + currentHash;
           let mainFallbackItem = 'main/' + currentHash;
           let needsReload = false;
@@ -88,7 +93,7 @@ function buildServerBootloader(base) {
             let targetKeys = await keys(undefined, targetDB);
             let exists = targetKeys.includes(key);
 
-            if (item === targetItem || item === mainFallbackItem || key.startsWith('boot/')) {
+            if (item === targetItem || item === mainFallbackItem || queryKeys.includes(key) || key.startsWith('boot/')) {
 
               let contentRes = await fetch('${base}read', {
                 method: 'POST',
@@ -127,7 +132,7 @@ function buildServerBootloader(base) {
                   let targetDB = await getDB(ns);
                   let targetKeys = await keys(undefined, targetDB);
                   let exists = targetKeys.includes(key);
-                  if (item === targetItem || item === mainFallbackItem || key.startsWith('boot/')) {
+                  if (item === targetItem || item === mainFallbackItem || queryKeys.includes(key) || key.startsWith('boot/')) {
                     let contentRes = await fetch('${base}read', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json', 'Authorization': syncKey },
@@ -151,6 +156,9 @@ function buildServerBootloader(base) {
           } catch (e) { console.warn('[Bootloader] Private index unavailable:', e); }
 
           if (isFirstBoot || needsReload) {
+            if (qrxBootHash && location.hash !== qrxBootHash) {
+              history.replaceState(null, '', qrxBootHash);
+            }
             location.reload();
           }
         } catch (e) {
@@ -175,6 +183,7 @@ function buildServerBootloader(base) {
 function buildStaticBootloader(base) {
   return `
     <script>
+      var qrxBootHash = location.hash;
 
       (async function boot() {
 
@@ -199,7 +208,9 @@ function buildStaticBootloader(base) {
 
 
           let activeNS = DB;
-          let currentHash = location.hash.replace('#', '') || 'main';
+          let bootHash = qrxBootHash.slice(1);
+          let currentHash = bootHash.split('?')[0] || 'main';
+          let queryKeys = [...new URLSearchParams(bootHash.split('?')[1] || '').keys()];
           let targetItem = activeNS + '/' + currentHash;
           let needsReload = false;
 
@@ -218,7 +229,7 @@ function buildStaticBootloader(base) {
             let targetKeys = await keys(undefined, targetDB);
             let exists = targetKeys.includes(key);
 
-            if (item === targetItem || key.startsWith('boot/')) {
+            if (item === targetItem || queryKeys.includes(key) || key.startsWith('boot/')) {
 
               /**
                * Static GET instead of POST /read
@@ -240,6 +251,9 @@ function buildStaticBootloader(base) {
           }
 
           if (isFirstBoot || needsReload) {
+            if (qrxBootHash && location.hash !== qrxBootHash) {
+              history.replaceState(null, '', qrxBootHash);
+            }
             location.reload();
           }
         } catch (e) {
@@ -254,11 +268,11 @@ function buildStaticBootloader(base) {
  *   1. Reads the built index.html (now has full doc structure + PWA injections).
  *   2. Extracts the bare kernel from inside <body> for QR code generation.
  *   3. Generates a QR code from the bare kernel — must be as small as possible.
- *   4. Appends the appropriate bootloader into the existing <body>,
- *      chosen based on whether GITHUB_PAGES env var is set.
+ *   4. Appends the QRX_URL injection and appropriate bootloader into the
+ *      existing <body>, chosen based on whether GITHUB_PAGES env var is set.
  *   5. Writes the final file.
  */
-const qrCodePlugin = (base, isGitHubPages) => ({
+const qrCodePlugin = (base, isGitHubPages, qrxUrl) => ({
   name: 'qr-code-plugin',
   async writeBundle() {
     const filePath = resolve(__dirname, 'dist/index.html')
@@ -284,11 +298,14 @@ const qrCodePlugin = (base, isGitHubPages) => ({
         history.replaceState(null, '', p + location.hash);
       })();
     </script>` : ''
+
+    const qrxUrlInject = `<script>window.QRX_URL=${jsString(qrxUrl)};</script>`
+
     const bootloader = isGitHubPages
       ? buildStaticBootloader(base)
       : buildServerBootloader(base)
 
-    const final = html.replace('</body>', baseInject + bootloader.replace(/\s+/g, ' ') + '</body>')
+    const final = html.replace('</body>', baseInject + qrxUrlInject + bootloader.replace(/\s+/g, ' ') + '</body>')
     writeFileSync(filePath, final)
 
     // GitHub Pages SPA routing: GitHub Pages 404s any path that isn't a real
@@ -317,6 +334,7 @@ const qrCodePlugin = (base, isGitHubPages) => ({
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const baseUrl = process.env.BASE_URL || env.BASE_URL || '/'
+  const qrxUrl = process.env.QRX_URL || env.QRX_URL || ''
   const isGitHubPages = process.env.GITHUB_PAGES === 'true'
   const isReddit = process.env.REDDIT_BUILD === 'true'
 
@@ -357,7 +375,7 @@ export default defineConfig(({ mode }) => {
       }),
       ]),
       htmlMinifierPlugin(),
-      qrCodePlugin(baseUrl, isGitHubPages),
+      qrCodePlugin(baseUrl, isGitHubPages, qrxUrl),
     ],
     build: {
       minify: 'terser',

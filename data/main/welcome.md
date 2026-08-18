@@ -1,3 +1,2 @@
 <h1>Welcome to r/Hyperprompting!</h1>
-
-this is interactive, click around :)
+this is not an image, have a click around!

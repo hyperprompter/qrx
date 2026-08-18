@@ -8,10 +8,11 @@
     "start": "node --env-file=.env server.js",
     "build": "vite build",
     "build:github": "GITHUB_PAGES=true node servers/github/build.js && GITHUB_PAGES=true vite build",
-    "build:reddit": "REDDIT_BUILD=true vite build && node servers/reddit/build.js && vite build --config servers/reddit/vite.server.config.js",
     "postbuild": "npm run tree",
     "login:reddit": "devvit login",
-    "dev:reddit": "devvit playtest r/llm_os_dev",
+    "build:reddit": "REDDIT_BUILD=true vite build && node servers/reddit/build.js && vite build --config servers/reddit/vite.server.config.js",
+    "deploy:reddit": "devvit upload",
+    "test:reddit": "devvit playtest r/llm_os_dev",
     "tree": "npx tree-cli --ignore \".git,node_modules,public,data,dist\" -o docs/llm/tree.txt"
   },
   "dependencies": {
@@ -20,10 +21,10 @@
     "vite": "^7.3.1"
   },
   "devDependencies": {
-    "@devvit/public-api": "^0.13.5",
-    "@devvit/web": "latest",
+    "@devvit/public-api": "^0.14.0",
+    "@devvit/web": "0.14.0",
     "@types/express": "^4.17.0",
-    "devvit": "latest",
+    "devvit": "0.14.0",
     "express": "^4.18.0",
     "tree-cli": "^0.6.7",
     "vite-plugin-pwa": "^1.2.0"

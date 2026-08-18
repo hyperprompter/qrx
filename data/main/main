@@ -1208,13 +1208,13 @@ window.addEventListener('keydown', function(event) {
 (async function() {
   var list = [];
   try {
-    var res = await fetch('/data/index.json');
+    var res = await fetch(BASE + 'data/index.json');
     if (res.ok) list = await res.json();
   } catch (e) {}
   try {
     var key = localStorage.getItem('SYNC_KEY');
     if (key) {
-      var privRes = await fetch('/data/index.private.json', { headers: { 'Authorization': key } });
+      var privRes = await fetch(BASE + 'data/index.private.json', { headers: { 'Authorization': key } });
       if (privRes.ok) {
         var privList = await privRes.json();
         list = [...new Set([...list, ...privList])];

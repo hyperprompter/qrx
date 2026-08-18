@@ -1,3 +1,15 @@
+---
+title: What does it mean for links to click themselves?
+subreddit: r/hyperprompting
+flair: theory crafting
+media:
+    - GIF
+        - LEFT: conways game of life
+        - CENTER: async network cellular automata
+        - RIGHT: SCC Monads, PageRank loop
+source: https://www.reddit.com/r/Hyperprompting/comments/1vl8m5b/what_does_it_mean_for_links_to_click_themselves/
+---
+
 as i demonstrated previously you can LLM-wrap pure hyperlinks that use the Data URI protocol (which have been valid clickable hyperlinks since the 90s), encode them into scannable QR Codes, and then one-shot an LLM:
 https://www.reddit.com/r/Hyperprompting/comments/1uc5rgm/tutorial_how_to_llmwrap_serverless_hyperlinks_qr/
 the demos in that link include:

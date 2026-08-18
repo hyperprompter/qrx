@@ -1,14 +1,15 @@
-# [Tutorial] How to LLM-wrap "Serverless" Hyperlinks && QR Codes
-https://www.reddit.com/r/Hyperprompting/comments/1uc5rgm/tutorial_how_to_llmwrap_serverless_hyperlinks_qr/
+---
+title: [Tutorial] How to LLM-wrap "Serverless" Hyperlinks && QR Codes
+subreddit: Hyperprompting
+flair: Tutorial
+source: https://www.reddit.com/r/Hyperprompting/comments/1uc5rgm/tutorial_how_to_llmwrap_serverless_hyperlinks_qr/
+media:
+    - some of these techniques have been possible in web browsers as early as 1990s
+    - example of a physics simulation with Qwen 3
+    - Example of a chatbot which can itself generate executable code inline
+    - Various zines I've made with generative Data URIs, the front one generates a digital rain
+---
 
-<media>
-#1 - some of these techniques have been possible in web browsers as early as 1990s
-#2 - example of a physics simulation with Qwen 3
-#3 - Example of a chatbot which can itself generate executable code inline
-#4 - Various zines I've made with generative Data URIs, the front one generates a digital rain
-</media>
-
-<body>
 in this tutorial you will learn how to create dependency-less, single-scan generative tools and web apps that you can encode into qrcodes or share as clickable links on your website, blogs, etc
 
 these qrcodes do not require a server to host them...they do not take you somewhere like most qrcodes, rather they ***generate*** ephemeral, sandboxed environments for you to vibe code in
@@ -63,4 +64,3 @@ this tutorial only covers the Data URI protocol, but there are many other protoc
 in future tutorials we'll discuss techniques for persistence, memory management, creating multi-hop Data URIs and Data URI Factories (URIs that generate URIs), swarms and more
 
 leave any questions, thoughts, comments, or share your own generative Data URIs below!
-</body>

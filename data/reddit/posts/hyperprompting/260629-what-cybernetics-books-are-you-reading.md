@@ -1,7 +1,16 @@
-https://www.reddit.com/r/Hyperprompting/comments/1uiw4v7/what_are_your_favorite_foundational_books_on/
-
-# what are your favorite foundational books on Cybernetics and how do you study them?
-
+---
+title: what are your favorite foundational books on Cybernetics and how do you study them?
+subreddit: r/hyperprompting
+flair: theory crafting
+media:
+    - PHOTO 2 binders
+        - LEFT: my Codex Hypertext paper binder prototype
+            - TOP: Wolfram Rule 30 (will contain the solar panel and esp32)
+            - BOTTOM LEFT: kernel index.html QR Code (will be replaced with eink screen)
+            - RIGHT: aricebo message (signifying radio, aka esp32 lora radio)
+        - RIGHT: The Tree of Knowledge by Varela
+source: https://www.reddit.com/r/Hyperprompting/comments/1uiw4v7/what_are_your_favorite_foundational_books_on/
+---
 
 it's surprising to me how relevant these old books are, though i guess it shouldn't be considering they are foundational logic based ideas. i guess one way to view modern AI research is really as algorithmic optimizations of foundational cybernetics
 

@@ -2,25 +2,25 @@
  * servers/reddit/build.js
  *
  * Post-build step for Reddit Devvit deployment.
- * Mirrors servers/github/build.js closely:
  *   - Reads QRX_PUBLIC_NAMESPACES (plus always-included 'main' and 'cache')
  *   - Copies each allowed namespace from data/ into dist/client/data/
  *   - Generates dist/client/data/index.json (flat key manifest)
- *   - Copies dist/index.html → dist/client/index.html
- *   - Injects a static bootloader (same as GitHub Pages, BASE='')
- *
- * Devvit serves everything in dist/client/ at the root of the webview,
- * so fetch('data/index.json') and fetch('data/ns/key') work identically
- * to how they work on GitHub Pages — just without a BASE subdirectory prefix.
+ *   - Builds data-bundle.json for the server bundle (no fs at runtime)
+ *   - Extracts inline <script> blocks from HTML data files into static .js
+ *     files (CSP script-src 'self' — inline scripts never run in the webview)
+ *   - Wraps raw-JS data files (windows, boot/*, ...) as static kernel modules
+ *     — a build-time new Function(G,'v','arg') — so the webview can invoke
+ *     them with zero runtime eval
+ *   - Copies thin client shell (client.html/client.js) as index.html
  *
  * Run via: npm run build:reddit
- * (which is: vite build && node servers/reddit/build.js)
  */
 
 import { readdir, copyFile, mkdir, writeFile, readFile } from 'fs/promises'
 import { existsSync } from 'fs'
 import { join, dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
+import vm from 'vm'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '../..')
@@ -75,59 +75,21 @@ async function walk(dir, base) {
 }
 
 /**
- * Static bootloader for Devvit webview.
- * Identical to buildStaticBootloader(base) in vite_config.js with base=''.
- * Devvit serves dist/client/ at the webview root, so no subdirectory prefix needed.
- * Note: injected script uses block comment style only — inline // breaks when HTML is compressed.
+ * Does this data file parse as a classic script body inside a function?
+ * Mirrors the kernel's new Function(G,'v','arg',code) — top-level return
+ * allowed. The structure guard excludes lone-identifier text files (e.g. a
+ * file containing just `welcome`) which would technically parse as JS.
  */
-function buildRedditBootloader() {
-  return `<script>
-(async function boot(){
-  if(typeof getDB==='undefined'||typeof keys==='undefined'||typeof write==='undefined'){
-    return setTimeout(boot,50);
+function isExecutableJS(code) {
+  if (!code || !code.trim()) return false
+  if (/^\s*</.test(code)) return false       /* markup, not code */
+  if (!/[;=(\n]/.test(code)) return false    /* no JS structure — treat as content */
+  try {
+    new vm.Script('(function(globals,v,arg){\n' + code + '\n})')
+    return true
+  } catch {
+    return false
   }
-  try{
-    let mainDB=await getDB();
-    let k=await keys(undefined,mainDB);
-    let isFirstBoot=k.length===0;
-    if(isFirstBoot&&typeof A!=='undefined') A.innerText='Syncing Dataverse...';
-    let res=await fetch('data/index.json');
-    if(!res.ok) throw new Error('Could not reach data/index.json');
-    let list=await res.json();
-    await queryDB(tx('readwrite',mainDB).put(JSON.stringify(list),'index.json'));
-    let activeNS=DB;
-    let currentHash=location.hash.replace('#','')||'main';
-    let targetItem=activeNS+'/'+currentHash;
-    let needsReload=false;
-    for(let item of list){
-      let parts=item.split('/');
-      let ns=parts[0];
-      let key=parts.slice(1).join('/');
-      /* cache namespace is runtime-only — skip */
-      if(ns==='cache') continue;
-      let targetDB=await getDB(ns);
-      let targetKeys=await keys(undefined,targetDB);
-      let exists=targetKeys.includes(key);
-      if(item===targetItem||key.startsWith('boot/')){
-        let contentRes=await fetch('data/'+ns+'/'+key);
-        if(contentRes.ok){
-          let text=await contentRes.text();
-          let localVal=exists?await queryDB(tx('readonly',targetDB).get(key)):null;
-          if(localVal!==text){
-            await queryDB(tx('readwrite',targetDB).put(text,key));
-            needsReload=true;
-          }
-        }
-      } else if(!exists){
-        await queryDB(tx('readwrite',targetDB).put('',key));
-      }
-    }
-    if(isFirstBoot||needsReload) location.reload();
-  } catch(e){
-    console.error('[Bootloader] Failed:',e);
-  }
-})();
-</script>`
 }
 
 async function main() {
@@ -192,21 +154,41 @@ async function main() {
   )
   console.log(`\n  data-bundle.json written with ${Object.keys(bundle).length} entries`)
 
-
-  /* Extract inline scripts from data files into static .js files.
-   * Scripts served statically need no auth — satisfies CSP script-src 'self'. */
+  /* Extract executable code from data files into static .js files.
+   * Static scripts served from 'self' need no auth and pass CSP. */
   const scriptsDir = join(DIST_CLIENT, 'scripts')
   await mkdir(scriptsDir, { recursive: true })
-  const manifest = {}
+  const manifest = {}  /* 'ns/key' -> [inline <script> files] (self-executing) */
+  const modules = {}   /* 'ns/key' -> wrapped module file (invoked as fn(globals, v, arg)) */
   const scriptRe = /<script(?![^>]*\bsrc\b)[^>]*>([\s\S]*?)<\/script>/g
-  for (const [key, html] of Object.entries(bundle)) {
+
+  for (const [key, content] of Object.entries(bundle)) {
+    const safeName = key.replace(/[^a-z0-9]/gi, '-')
+
+    /* Raw-JS data file → wrap VERBATIM in a function inside a static .js file.
+     * This is new Function(G,'v','arg',code) performed at BUILD time: same
+     * parameter names, same `this`, same top-level return support — but no
+     * runtime eval, so it passes Devvit's CSP and runs with a real browser
+     * `window`/`document`. */
+    if (isExecutableJS(content)) {
+      const filename = 'scripts/mod-' + safeName + '.js'
+      await writeFile(
+        join(DIST_CLIENT, filename),
+        'window.__qrx_mod=window.__qrx_mod||{};\n' +
+        'window.__qrx_mod[' + JSON.stringify(key) + ']=function(globals,v,arg){\n' +
+        content + '\n};\n'
+      )
+      modules[key] = filename
+      continue
+    }
+
+    /* HTML page → extract inline <script> blocks (existing behavior) */
     const scripts = []
     let match, si = 0
     scriptRe.lastIndex = 0
-    while ((match = scriptRe.exec(html)) !== null) {
+    while ((match = scriptRe.exec(content)) !== null) {
       const code = match[1].trim()
       if (!code) continue
-      const safeName = key.replace(/[^a-z0-9]/gi, '-')
       const filename = 'scripts/' + safeName + '-' + si++ + '.js'
       await writeFile(join(DIST_CLIENT, filename), code)
       scripts.push(filename)
@@ -214,8 +196,11 @@ async function main() {
     if (scripts.length) manifest[key] = scripts
   }
   await writeFile(join(DIST_CLIENT, 'scripts/manifest.json'), JSON.stringify(manifest))
+  await writeFile(join(DIST_CLIENT, 'scripts/modules.json'), JSON.stringify(modules))
+  /* the server bundle needs to know which keys are executable modules */
+  await writeFile(join(__dirname, 'scripts-manifest.json'), JSON.stringify({ manifest, modules }))
   console.log('  scripts/manifest.json written with ' + Object.keys(manifest).length + ' keys')
-
+  console.log('  scripts/modules.json written with ' + Object.keys(modules).length + ' kernel modules')
 
   /* Copy thin client shell — replaces the kernel for Reddit. */
   await copyFile(join(__dirname, 'client.html'), join(DIST_CLIENT, 'index.html'))

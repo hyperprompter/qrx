@@ -1,13 +1,20 @@
-# Towards a Teleology of Hypertext - Welcome to r/Hyperprompting! (coming soon)
-https://www.reddit.com/r/Hyperprompting/comments/1ub2ia3/towards_a_teleology_of_hypertext_welcome_to/
+---
+title: Towards a Teleology of Hypertext - Welcome to r/Hyperprompting! (coming soon)
+subreddit: r/hyperprompting
+flair: announcement
+media:
+    - PHOTO
+        - LEFT: my Codex Hypertext paper binder prototype
+        - TOP: Wolfram Rule 30 (will contain the solar panel and esp32)
+        - BOTTOM LEFT: kernel index.html QR Code (will be replaced with eink screen)
+        - RIGHT: aricebo message (signifying radio, aka esp32 lora radio)
+    - PHOTO using one-shot Data URIs with fetch() to enable scannable, serverless vibe coded interactive zines
+    - PHOTO the windows 95 operating system shipped on floppy disks, with hyperprompting you can ship an LLM OS with floppy paper
+    - SCREENSHOT of my entirely vibe coded agentic operating system, including my devlog/diaires, chat interface, and agent orchestration interface
+    - MONTAGE VIDEO emergent self-named agents grown from "thoughtform protoplasts" (hypertextual knowledge graphs) that you can interact with handsfree
+source: https://www.reddit.com/r/Hyperprompting/comments/1ub2ia3/towards_a_teleology_of_hypertext_welcome_to/
+---
 
-<media>
-#1 - paper prototype for a 3d-printed hypertextual grimoire with embedded eink screen for qrcodes and esp32 lora radio for long range network with no internet infrastructure
-#2 - using one-shot Data URIs with fetch() to enable scannable, serverless vibe coded interactive zines
-#3 - the windows 95 operating system shipped on floppy disks, with hyperprompting you can ship an LLM OS with floppy paper
-#4 - screenshot of my entirely vibe coded agentic operating system, including my devlog/diaires, chat interface, and agent orchestration interface
-#5 - emergent self-named agents grown from "thoughtform protoplasts" (hypertextual knowledge graphs) that you can interact with handsfree
-<body>
 # huzzah!
 
 after accidentally discovering recursive generative iframes in 2024 through the r/Websim interface, i quit socials and locked myself in, spending years trying to compress the idea into a single qrcode
@@ -39,4 +46,3 @@ hyperprompts are "evergreen" because they scale with intelligence...in fact the 
 instead the north star behind r/hyperprompting is to form a community that can hyperstition entirely new internets to enable radical r/solarpunk permacomputing and network state adjacent post r/singularity communes
 
 it's a way to realize one of the original visions behind the internet and world wide web: [https://www.xanadu.net](https://www.xanadu.net)
-</body>
