@@ -7,9 +7,6 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 const __dirname = resolve()
 
-/**
- * Safely serialize a string for direct injection into an inline script.
- */
 const jsString = value => JSON.stringify(value).replace(/</g, '\\u003c')
 
 /**
@@ -41,12 +38,13 @@ const htmlMinifierPlugin = () => ({
  * Builds the bootloader script for server deployments.
  *
  * Resolves namespace from hostname, fetches data/index.json, then for each
- * known key either syncs content via POST /read (for target/boot keys) or
- * stubs empty strings. Reloads on first boot or when content has changed.
+ * known key either syncs content via POST /read (for target/query/boot keys)
+ * or stubs empty strings. Reloads on first boot or when content has changed.
  */
 function buildServerBootloader(base) {
   return `
     <script>
+      var qrxBootHash = location.hash;
 
       window.NS = fetch('${base}data/index.json')
         .then(r => r.ok ? r.json() : [])
@@ -79,8 +77,9 @@ function buildServerBootloader(base) {
 
 
           let pathNs = DB;
-          let currentHash = location.hash.slice(1).split('?')[0] || 'main';
-          let queryKeys = [...new URLSearchParams(location.hash.slice(1).split('?')[1] || '').keys()];
+          let bootHash = qrxBootHash.slice(1);
+          let currentHash = bootHash.split('?')[0] || 'main';
+          let queryKeys = [...new URLSearchParams(bootHash.split('?')[1] || '').keys()];
           let targetItem = pathNs + '/' + currentHash;
           let mainFallbackItem = 'main/' + currentHash;
           let needsReload = false;
@@ -157,6 +156,9 @@ function buildServerBootloader(base) {
           } catch (e) { console.warn('[Bootloader] Private index unavailable:', e); }
 
           if (isFirstBoot || needsReload) {
+            if (qrxBootHash && location.hash !== qrxBootHash) {
+              history.replaceState(null, '', qrxBootHash);
+            }
             location.reload();
           }
         } catch (e) {
@@ -181,6 +183,7 @@ function buildServerBootloader(base) {
 function buildStaticBootloader(base) {
   return `
     <script>
+      var qrxBootHash = location.hash;
 
       (async function boot() {
 
@@ -205,8 +208,9 @@ function buildStaticBootloader(base) {
 
 
           let activeNS = DB;
-          let currentHash = location.hash.slice(1).split('?')[0] || 'main';
-          let queryKeys = [...new URLSearchParams(location.hash.slice(1).split('?')[1] || '').keys()];
+          let bootHash = qrxBootHash.slice(1);
+          let currentHash = bootHash.split('?')[0] || 'main';
+          let queryKeys = [...new URLSearchParams(bootHash.split('?')[1] || '').keys()];
           let targetItem = activeNS + '/' + currentHash;
           let needsReload = false;
 
@@ -247,6 +251,9 @@ function buildStaticBootloader(base) {
           }
 
           if (isFirstBoot || needsReload) {
+            if (qrxBootHash && location.hash !== qrxBootHash) {
+              history.replaceState(null, '', qrxBootHash);
+            }
             location.reload();
           }
         } catch (e) {
@@ -261,10 +268,9 @@ function buildStaticBootloader(base) {
  *   1. Reads the built index.html (now has full doc structure + PWA injections).
  *   2. Extracts the bare kernel from inside <body> for QR code generation.
  *   3. Generates a QR code from the bare kernel — must be as small as possible.
- *   4. Injects the optional QRX_URL sync endpoint.
- *   5. Appends the appropriate bootloader into the existing <body>,
- *      chosen based on whether GITHUB_PAGES env var is set.
- *   6. Writes the final file.
+ *   4. Appends the QRX_URL injection and appropriate bootloader into the
+ *      existing <body>, chosen based on whether GITHUB_PAGES env var is set.
+ *   5. Writes the final file.
  */
 const qrCodePlugin = (base, isGitHubPages, qrxUrl) => ({
   name: 'qr-code-plugin',
@@ -283,8 +289,6 @@ const qrCodePlugin = (base, isGitHubPages, qrxUrl) => ({
       margin: 1,
     })
 
-    const qrxUrlInject = `<script>window.QRX_URL=${jsString(qrxUrl)};</script>`
-
     const baseInject = isGitHubPages ? `<script>
       BASE='${base}';
       (function(){
@@ -294,6 +298,8 @@ const qrCodePlugin = (base, isGitHubPages, qrxUrl) => ({
         history.replaceState(null, '', p + location.hash);
       })();
     </script>` : ''
+
+    const qrxUrlInject = `<script>window.QRX_URL=${jsString(qrxUrl)};</script>`
 
     const bootloader = isGitHubPages
       ? buildStaticBootloader(base)
@@ -328,9 +334,9 @@ const qrCodePlugin = (base, isGitHubPages, qrxUrl) => ({
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const baseUrl = process.env.BASE_URL || env.BASE_URL || '/'
+  const qrxUrl = process.env.QRX_URL || env.QRX_URL || ''
   const isGitHubPages = process.env.GITHUB_PAGES === 'true'
   const isReddit = process.env.REDDIT_BUILD === 'true'
-  const qrxUrl = process.env.QRX_URL || env.QRX_URL || ''
 
   if (isGitHubPages) {
     console.log('\n  Building for GitHub Pages (static bootloader)\n')
