@@ -497,6 +497,10 @@ button#pause-btn:hover {
 </div><script>
 window.particles = [];
 window.loadData = async function(keyword, count) {
+  window.paused = true;
+  var pauseBtn = document.getElementById("pause-btn");
+  if (pauseBtn) pauseBtn.textContent = "▶ Play";
+
   var statusEl = document.getElementById("status");
   var setStatus = function(msg) {
     if (statusEl) statusEl.textContent = msg;
@@ -1182,14 +1186,20 @@ window.loadData(initialKeyword, initialCount);
 })();
 </script> <script>
 (function() {
-  window.paused = false;
+  window.paused = true;
   var pauseBtn = document.getElementById("pause-btn");
   if (pauseBtn) {
+    pauseBtn.textContent = "▶ Play";
     pauseBtn.addEventListener("click", function() {
       window.paused = !window.paused;
       pauseBtn.textContent = window.paused ? "▶ Play" : "⏸ Pause";
     });
   }
+
+  window.addEventListener("data:loaded", function() {
+    window.paused = false;
+    if (pauseBtn) pauseBtn.textContent = "⏸ Pause";
+  });
 
   var types = ["post", "thread", "reply", "like", "repost", "quote"];
   window.forceMatrix = {};

@@ -35,6 +35,7 @@
     - avatar: author avatar url if available
     - uri: the post uri if it has one
     - root: the uri of the top-level post this particle belongs to, for clustering later
+  - at the very start of window.loadData set window.paused = true and set the text of id="pause-btn" to "▶ Play", the simulation stays paused while data loads
   - update id="status" throughout with fetch progress
   - when finished dispatch CustomEvent "data:loaded" on window with window.particles as event.detail
   - this is just a loader function, do not render anything and do not call it yet
@@ -62,7 +63,7 @@
   - run immediately, no DOMContentLoaded wait
   - ONLY generate this SCRIPT tag, do not return the previous code
 &w&a=1&p=TASK: output a SCRIPT tag that implements the pairwise particle-life behavior
-  - create window.paused = false and bind id="pause-btn" to toggle it, swapping the button label between Pause and Play
+  - create window.paused = true (the autorun load is already in flight when this script runs, so the sim starts paused) and set the initial id="pause-btn" label to "▶ Play"; bind id="pause-btn" to toggle window.paused, swapping the button label between "▶ Play" and "⏸ Pause"; add a window "data:loaded" listener that sets window.paused = false and the pause button label to "⏸ Pause" so the sim resumes once data arrives
   - create window.forceMatrix, a nested object keyed by the 6 type names post, thread, reply, like, repost, quote, holding a random attraction or repulsion value between -1 and 1 for every ordered pair, so it can be tuned later
   - create window.simConfig holding every tunable setting so a later settings panel can change them live:
     - interactionRadius: default 0.15 times the smaller of the canvas width and height
